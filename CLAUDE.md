@@ -22,50 +22,84 @@ areas where the user's monthly benchmarks indicate the most stiffness.
 
 ## 2. Current state
 
-**Last updated**: 2026-04-07 (end of Phase 2 session)
-**Active branch**: `feature/longevity-engine` (PR target is `development`)
+**Last updated**: 2026-04-07 (end of Phase 3 session)
+**Active branch**: `feature/session-flow` (PR target is `development`)
 
-**Just completed**: Phase 2 — Longevity Engine
-- `core/util/Clock.kt` — fun-interface seam over `System.currentTimeMillis`
-  so engine code can be unit-tested with a fake clock.
-- `core/engine/model/SessionPlan.kt` — `SessionPlan` + `PlannedExercise`
-  output types consumed by the future session UI.
-- `core/engine/CategoryWeightCalculator.kt` — joins latest `BenchmarkLog`
-  entries to their `Benchmark`, groups resolved tiers by category, and
-  averages weights. Missing categories default to `FlexibilityTier.AVERAGE`.
-- `core/engine/SelectionShield.kt` — finds exercises whose `lastPerformed`
-  is null or older than 14 days (cutoff configurable).
-- `core/engine/SessionBuilder.kt` — Phase A inserts up to `maxForced=2`
-  forced exercises (oldest stale first), Phase B fills via weighted random
-  until both `minExercises=5` AND `minSeconds=600` are reached or
-  `maxExercises=8` is hit. Each exercise's contribution is capped at
-  `perExerciseCapSeconds=120`.
-- `core/engine/LongevityEngine.kt` — Singleton orchestrator. The only
-  engine class that touches Room: loads catalog + latest logs, delegates
-  every algorithmic decision to the three pure components, returns
-  `SessionPlan`.
-- `core/di/EngineModule.kt` — Hilt binding for `Clock`. The engine
-  components themselves all use `@Inject constructor` so Hilt finds them
-  automatically.
-- JVM unit tests (`app/src/test/java/.../core/engine/`):
-  `CategoryWeightCalculatorTest`, `SelectionShieldTest`, `SessionBuilderTest`
-  — empty/edge cases, forced ordering, 120s cap, statistical "stiff
-  category dominates" check over 500 seeded runs.
+**Just completed**: Phase 3 — Session UI Flow
+- `data/SessionRepository.kt` — wraps the session DAOs so the ViewModel
+  doesn't touch Room. Persists a finished `SessionPlan` via `SessionRecord`
+  + `SessionExercise` rows, stamps `Exercise.lastPerformed` for each item,
+  and exposes `currentStreakDays()`. The streak math itself lives in a
+  pure `internal` companion function (`computeStreak`) so it can be unit
+  tested without Room. Anchored on today OR yesterday (1-day grace window).
+- `ui/session/SessionUiState.kt` — sealed hierarchy
+  `Loading | Preview | FollowAlong | Complete | Error` plus a `Side` enum
+  (`NONE | LEFT | RIGHT`). `FollowAlong` carries `currentIndex`, `side`,
+  `remainingSeconds`, `totalSecondsForPhase`, `isPaused` plus a
+  `progressFraction` derived getter for the linear progress bar.
+- `ui/session/SessionViewModel.kt` — `@HiltViewModel`, single source of
+  truth across all three session screens. `generate()` runs at init and
+  whenever the user retries; `swap(index)` swaps an exercise in-place from
+  the same category, capped at 120s; `start()` flips Preview → FollowAlong
+  and boots a 1 Hz `delay`-based timer coroutine; `tick()` is `internal`
+  for tests; `togglePause()` just sets a flag (timer keeps running but
+  no-ops); `skip()` calls `advance()` directly. Unilateral exercises split
+  the budget LEFT (ceiling) → RIGHT (floor) via `phaseSeconds`. `finish()`
+  cancels the timer, calls `repository.completeSession`, and emits
+  `Complete` with the new streak count.
+- `ui/session/SessionPreviewScreen.kt` — Material3 Scaffold + TopAppBar.
+  Branches on state (Loading spinner / Error + retry / Preview list).
+  Shows a `PlanSummary` (X exercises, ~MM:SS), a `LazyColumn` of
+  `ExerciseCard`s (name, category, duration, swap icon, optional
+  `ForcedBadge` for `item.isForced`), and a "Start session" button.
+- `ui/session/SessionFollowAlongScreen.kt` — progress header, animation
+  placeholder box, exercise name + category + side badge, bullet cue list,
+  big countdown timer + phase progress bar, Pause/Resume + Skip buttons.
+- `ui/session/SessionCompleteScreen.kt` — checkmark hero, three stat
+  cards (exercises / duration / streak), Done button.
+- `ui/home/HomeScreen.kt` — placeholder landing screen (Phase 5 will
+  replace it with the real dashboard). Just title + "Start today's
+  session" CTA so Phase 3 is demoable end-to-end.
+- `ui/navigation/StretchDailyNavHost.kt` — `Routes` constants and a
+  nested `navigation(...)` graph for the session leg. All three session
+  screens resolve `SessionViewModel` via `hiltViewModel(parentEntry)`
+  scoped to the `SESSION_GRAPH` back stack entry — that's how the running
+  timer and `Preview` plan survive the Preview → FollowAlong transition.
+  The FollowAlong destination watches for `SessionUiState.Complete` and
+  navigates forward via `LaunchedEffect`.
+- `MainActivity.kt` — Phase 1 placeholder text removed; now hosts
+  `StretchDailyNavHost()` inside the theme.
+- JVM unit tests:
+  - `app/src/test/java/.../data/SessionRepositoryStreakTest.kt` —
+    7 cases covering empty / today / consecutive / same-day-dedup /
+    gap / yesterday-grace / old-block-doesn't-count.
+  - `app/src/test/java/.../ui/session/SessionViewModelTest.kt` —
+    11 cases driving the public API through every transition with
+    mockk fakes for `LongevityEngine` and `SessionRepository` and an
+    `UnconfinedTestDispatcher`. Covers init → Preview, init → Error,
+    start with bilateral, start with unilateral (begins on LEFT), tick
+    decrement, paused tick is no-op, tick rollover advances, unilateral
+    LEFT → RIGHT → next, finish persists + emits Complete with streak,
+    skip, and the `phaseSeconds` ceiling/floor math.
 
-Phase 2 was code-reviewed but **not yet verified by a build run** (gradle
-CLI is still blocked on this machine — see Known issues). Compilation and
-the unit tests will be verified via Android Studio at the start of Phase 3.
+Phase 3 has not yet been compiled — Ramon will run Build → Make Project
+in Android Studio to verify. Gradle CLI is still blocked on this machine
+(see Known issues — unchanged from Phase 2).
 
-**Next up**: Phase 3 — Session UI Flow (`feature/session-flow`)
-1. `SessionViewModel` — calls `LongevityEngine.generateSession()` and holds
-   preview / current-exercise / timer state via `StateFlow`.
-2. `SessionPreviewScreen` — scrollable list of `PlannedExercise` with swap
-   buttons + "Start" CTA.
-3. `FollowAlongScreen` — placeholder animation area, name + cues, timer or
-   rep counter, unilateral LEFT/RIGHT split.
-4. `SessionCompleteScreen` — summary, streak update.
-5. Wire navigation as a nested graph; on completion update each
-   `Exercise.lastPerformed` and insert `SessionRecord` + `SessionExercise`.
+**Next up**: Phase 4 — Benchmarks Tab (`feature/benchmarks`)
+1. `TierResolver.kt` — parse the stored range strings on each Benchmark
+   into numeric thresholds and resolve a logged value to a
+   `FlexibilityTier`. Handles direction-reversed ranges (Sit and Reach).
+2. `BenchmarksScreen.kt` + `BenchmarksViewModel.kt` — vertical list of
+   all 10 benchmarks; numeric input for the 9 numeric ones, 5-button
+   tier picker for ATG Split Squat (categorical). Save inserts a
+   `BenchmarkLog` row with raw value + resolved tier.
+3. Benchmark history (per-benchmark log list, edit per row).
+4. Connect `CategoryWeightCalculator` to real data — the engine already
+   reads logs but with no benchmarks logged it's been falling through
+   to the AVERAGE default.
+5. Home banner reminding the user to log when > 30 days old or 1st of
+   the month.
 
 **Known issues**:
 - **Gradle CLI build blocked on this Windows machine — no JDK-side fix
@@ -130,8 +164,8 @@ the unit tests will be verified via Android Studio at the start of Phase 3.
 - **MVVM**: ViewModel + StateFlow (no LiveData). UI is 100% Compose.
 - **DI**: Hilt. `SingletonComponent` modules so far: `DatabaseModule`
   (database, DAOs, ApplicationScope), `EngineModule` (Clock binding). All
-  engine classes use `@Inject constructor` and don't need explicit
-  `@Provides`.
+  engine, repository, and ViewModel classes use `@Inject constructor` and
+  don't need explicit `@Provides`. ViewModels are `@HiltViewModel`.
 - **Database**: Room with KSP. Seeded once at file creation via
   `RoomDatabase.Callback.onCreate` running on `Dispatchers.IO` inside the
   injected `@ApplicationScope` coroutine scope.
@@ -141,7 +175,19 @@ the unit tests will be verified via Android Studio at the start of Phase 3.
   JVM JUnit. `LongevityEngine` is the thin Android-aware orchestrator that
   actually talks to Room and is the only public entry point. Tests inject a
   fake `Clock` and a seeded `Random` for determinism.
-- **Navigation**: Will use Compose Navigation with type-safe routes (Phase 3+).
+- **Repositories**: `data/`. Wrap DAOs so ViewModels never see Room.
+  Pure-logic helpers (e.g. `SessionRepository.computeStreak`) live as
+  `internal` companion functions so they're testable on the JVM without
+  spinning up a database.
+- **Session ViewModel**: One `SessionViewModel` for the entire session
+  flow, scoped to the nested session NavGraph entry via
+  `hiltViewModel(parentEntry)`. The 1 Hz timer is a `delay`-based
+  coroutine inside `viewModelScope`; the `tick()` function is `internal`
+  so unit tests can drive it without a real dispatcher.
+- **Navigation**: Compose Navigation with string routes. The session
+  flow is a nested `navigation(...)` graph (`SESSION_GRAPH`) so all three
+  session destinations share one ViewModel + back stack entry. Top-level
+  routes are constants in `ui/navigation/StretchDailyNavHost.kt`.
 
 ---
 
@@ -166,7 +212,7 @@ the unit tests will be verified via Android Studio at the start of Phase 3.
 ```
 app/src/main/java/com/stretchdaily/app/
 ├── StretchDailyApp.kt              # @HiltAndroidApp Application
-├── MainActivity.kt                 # @AndroidEntryPoint, Compose entry point
+├── MainActivity.kt                 # @AndroidEntryPoint, hosts StretchDailyNavHost
 ├── core/
 │   ├── model/
 │   │   ├── Category.kt             # 7 body areas
@@ -181,7 +227,7 @@ app/src/main/java/com/stretchdaily/app/
 │   │   ├── StretchDailyDatabase.kt # RoomDatabase, seeds on create
 │   │   ├── DatabaseSeeder.kt       # All 46 exercises + 10 benchmarks
 │   │   ├── Converters.kt           # JSON for List/Map, name() for enums
-│   │   └── dao/                    # ExerciseDao, BenchmarkDao, ...
+│   │   └── dao/                    # ExerciseDao, BenchmarkDao, SessionDao, ...
 │   ├── engine/
 │   │   ├── LongevityEngine.kt      # Public generateSession() — only DAO-aware class
 │   │   ├── CategoryWeightCalculator.kt   # latest logs -> Map<Category, Double>
@@ -194,12 +240,30 @@ app/src/main/java/com/stretchdaily/app/
 │   └── di/
 │       ├── DatabaseModule.kt       # Hilt — database, DAOs, ApplicationScope
 │       └── EngineModule.kt         # Hilt — Clock binding
-└── ui/theme/                       # Color, Type, Theme
+├── data/
+│   └── SessionRepository.kt        # Persists finished sessions, computes streak
+└── ui/
+    ├── theme/                      # Color, Type, Theme
+    ├── navigation/
+    │   └── StretchDailyNavHost.kt  # Routes + nested session NavGraph
+    ├── home/
+    │   └── HomeScreen.kt           # Phase 3 placeholder landing screen
+    └── session/
+        ├── SessionUiState.kt       # sealed Loading|Preview|FollowAlong|Complete|Error + Side
+        ├── SessionViewModel.kt     # @HiltViewModel — generate/start/tick/pause/skip/finish
+        ├── SessionPreviewScreen.kt # exercise list + swap + start
+        ├── SessionFollowAlongScreen.kt # countdown + cues + pause/skip
+        └── SessionCompleteScreen.kt # checkmark + stat cards + done
 
-app/src/test/java/com/stretchdaily/app/core/engine/
-├── CategoryWeightCalculatorTest.kt
-├── SelectionShieldTest.kt
-└── SessionBuilderTest.kt           # 5-8 in 600-900s, statistical bias check
+app/src/test/java/com/stretchdaily/app/
+├── core/engine/
+│   ├── CategoryWeightCalculatorTest.kt
+│   ├── SelectionShieldTest.kt
+│   └── SessionBuilderTest.kt       # 5-8 in 600-900s, statistical bias check
+├── data/
+│   └── SessionRepositoryStreakTest.kt  # streak math: empty/today/gap/grace
+└── ui/session/
+    └── SessionViewModelTest.kt     # state transitions via mockk + UnconfinedTestDispatcher
 ```
 
 Reference materials (gitignored — kept locally only):
