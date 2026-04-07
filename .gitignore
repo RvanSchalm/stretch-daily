@@ -1,0 +1,28 @@
+# Android / Gradle
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.keystore
+keystore.properties
+
+# Kotlin
+*.hprof
+
+# Claude Code local settings (skills are committed, settings are per-user)
+.claude/settings.local.json
+
+# Reference materials (kept locally but not committed)
+Project Blueprint.docx
+Exercises.xlsx
+Benchmarks V2.xlsx
+Screenshots/
+~$*.docx
+~$*.xlsx
