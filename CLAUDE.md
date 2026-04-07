@@ -22,30 +22,50 @@ areas where the user's monthly benchmarks indicate the most stiffness.
 
 ## 2. Current state
 
-**Last updated**: 2026-04-07 (end of Phase 1 session)
-**Active branch**: `chore/repo-init` (per plan, this single branch covers the
-whole Phase 1 scaffold; PR target is `development`)
+**Last updated**: 2026-04-07 (end of Phase 2 session)
+**Active branch**: `feature/longevity-engine` (PR target is `development`)
 
-**Just completed**: Phase 1 — Project Scaffold + Database
-- Gradle wrapper + version catalog (`gradle/libs.versions.toml`)
-- App shell: `AndroidManifest.xml`, `StretchDailyApp` (`@HiltAndroidApp`),
-  `MainActivity` (`@AndroidEntryPoint`) with placeholder Compose screen
-- Dark theme with orange accents (`ui/theme/`)
-- All Room entities: `Exercise`, `Benchmark`, `BenchmarkLog`, `SessionRecord`,
-  `SessionExercise` + enums `Category`, `FlexibilityTier`, `BenchmarkInputType`
-- DAOs: `ExerciseDao`, `BenchmarkDao`, `BenchmarkLogDao`, `SessionDao`
-- `Converters` (kotlinx.serialization for List/Map, name-based for enums)
-- `StretchDailyDatabase` with `RoomDatabase.Callback.onCreate` seeding
-- `DatabaseSeeder` with all 46 exercises and 10 benchmarks
-- Hilt `DatabaseModule` providing the database, all DAOs, and an
-  `@ApplicationScope CoroutineScope`
+**Just completed**: Phase 2 — Longevity Engine
+- `core/util/Clock.kt` — fun-interface seam over `System.currentTimeMillis`
+  so engine code can be unit-tested with a fake clock.
+- `core/engine/model/SessionPlan.kt` — `SessionPlan` + `PlannedExercise`
+  output types consumed by the future session UI.
+- `core/engine/CategoryWeightCalculator.kt` — joins latest `BenchmarkLog`
+  entries to their `Benchmark`, groups resolved tiers by category, and
+  averages weights. Missing categories default to `FlexibilityTier.AVERAGE`.
+- `core/engine/SelectionShield.kt` — finds exercises whose `lastPerformed`
+  is null or older than 14 days (cutoff configurable).
+- `core/engine/SessionBuilder.kt` — Phase A inserts up to `maxForced=2`
+  forced exercises (oldest stale first), Phase B fills via weighted random
+  until both `minExercises=5` AND `minSeconds=600` are reached or
+  `maxExercises=8` is hit. Each exercise's contribution is capped at
+  `perExerciseCapSeconds=120`.
+- `core/engine/LongevityEngine.kt` — Singleton orchestrator. The only
+  engine class that touches Room: loads catalog + latest logs, delegates
+  every algorithmic decision to the three pure components, returns
+  `SessionPlan`.
+- `core/di/EngineModule.kt` — Hilt binding for `Clock`. The engine
+  components themselves all use `@Inject constructor` so Hilt finds them
+  automatically.
+- JVM unit tests (`app/src/test/java/.../core/engine/`):
+  `CategoryWeightCalculatorTest`, `SelectionShieldTest`, `SessionBuilderTest`
+  — empty/edge cases, forced ordering, 120s cap, statistical "stiff
+  category dominates" check over 500 seeded runs.
 
-**Next up**: Phase 2 — Longevity Engine (`feature/longevity-engine`)
-1. `CategoryWeightCalculator` — latest BenchmarkLog → `Map<Category, Double>`
-2. `SelectionShield` — exercises stale for >14 days
-3. `SessionBuilder` — weighted random selection within 600–900s budget
-4. `LongevityEngine` — public `generateSession()` API
-5. Unit tests (this is the core algorithm — test thoroughly)
+Phase 2 was code-reviewed but **not yet verified by a build run** (gradle
+CLI is still blocked on this machine — see Known issues). Compilation and
+the unit tests will be verified via Android Studio at the start of Phase 3.
+
+**Next up**: Phase 3 — Session UI Flow (`feature/session-flow`)
+1. `SessionViewModel` — calls `LongevityEngine.generateSession()` and holds
+   preview / current-exercise / timer state via `StateFlow`.
+2. `SessionPreviewScreen` — scrollable list of `PlannedExercise` with swap
+   buttons + "Start" CTA.
+3. `FollowAlongScreen` — placeholder animation area, name + cues, timer or
+   rep counter, unilateral LEFT/RIGHT split.
+4. `SessionCompleteScreen` — summary, streak update.
+5. Wire navigation as a nested graph; on completion update each
+   `Exercise.lastPerformed` and insert `SessionRecord` + `SessionExercise`.
 
 **Known issues**:
 - **Gradle CLI build blocked on this Windows machine — no JDK-side fix
@@ -108,13 +128,19 @@ whole Phase 1 scaffold; PR target is `development`)
 ## 3. Architecture summary
 
 - **MVVM**: ViewModel + StateFlow (no LiveData). UI is 100% Compose.
-- **DI**: Hilt. Single `SingletonComponent` module (`DatabaseModule`) for now;
-  more modules will be added per feature phase.
+- **DI**: Hilt. `SingletonComponent` modules so far: `DatabaseModule`
+  (database, DAOs, ApplicationScope), `EngineModule` (Clock binding). All
+  engine classes use `@Inject constructor` and don't need explicit
+  `@Provides`.
 - **Database**: Room with KSP. Seeded once at file creation via
   `RoomDatabase.Callback.onCreate` running on `Dispatchers.IO` inside the
   injected `@ApplicationScope` coroutine scope.
-- **Engine**: Will live in `core/engine/` as pure Kotlin (no Android
-  dependencies) so it can be unit-tested with plain JVM tests.
+- **Engine**: `core/engine/`. The three components
+  (`CategoryWeightCalculator`, `SelectionShield`, `SessionBuilder`) are pure
+  Kotlin — no Android, no Room, no coroutines — so they're tested via plain
+  JVM JUnit. `LongevityEngine` is the thin Android-aware orchestrator that
+  actually talks to Room and is the only public entry point. Tests inject a
+  fake `Clock` and a seeded `Random` for determinism.
 - **Navigation**: Will use Compose Navigation with type-safe routes (Phase 3+).
 
 ---
@@ -156,9 +182,24 @@ app/src/main/java/com/stretchdaily/app/
 │   │   ├── DatabaseSeeder.kt       # All 46 exercises + 10 benchmarks
 │   │   ├── Converters.kt           # JSON for List/Map, name() for enums
 │   │   └── dao/                    # ExerciseDao, BenchmarkDao, ...
+│   ├── engine/
+│   │   ├── LongevityEngine.kt      # Public generateSession() — only DAO-aware class
+│   │   ├── CategoryWeightCalculator.kt   # latest logs -> Map<Category, Double>
+│   │   ├── SelectionShield.kt      # exercises stale > 14d
+│   │   ├── SessionBuilder.kt       # weighted random + 120s cap
+│   │   └── model/
+│   │       └── SessionPlan.kt      # SessionPlan + PlannedExercise
+│   ├── util/
+│   │   └── Clock.kt                # fun interface { now(): Long }
 │   └── di/
-│       └── DatabaseModule.kt       # Hilt — database, DAOs, ApplicationScope
+│       ├── DatabaseModule.kt       # Hilt — database, DAOs, ApplicationScope
+│       └── EngineModule.kt         # Hilt — Clock binding
 └── ui/theme/                       # Color, Type, Theme
+
+app/src/test/java/com/stretchdaily/app/core/engine/
+├── CategoryWeightCalculatorTest.kt
+├── SelectionShieldTest.kt
+└── SessionBuilderTest.kt           # 5-8 in 600-900s, statistical bias check
 ```
 
 Reference materials (gitignored — kept locally only):
