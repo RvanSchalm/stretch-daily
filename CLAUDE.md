@@ -48,41 +48,60 @@ whole Phase 1 scaffold; PR target is `development`)
 5. Unit tests (this is the core algorithm — test thoroughly)
 
 **Known issues**:
-- **Gradle CLI build blocked on this Windows machine — root cause identified.**
-  Any `./gradlew` invocation that needs a Selector (i.e. anything that starts
-  a daemon, which is every real task) fails with
+- **Gradle CLI build blocked on this Windows machine — no JDK-side fix
+  exists.** Any `./gradlew` invocation that needs a Selector (i.e. anything
+  that starts a daemon, which is every real task) fails with
   `java.io.IOException: Unable to establish loopback connection` →
   `SocketException: Invalid argument: connect` inside
   `UnixDomainSockets.connect0`.
-  - **Root cause**: `WEPollSelectorProvider` (the default Selector provider
-    on Windows since JDK 18) constructs its internal wakeup pipe via
-    `PipeImpl` with `preferUnixDomain = true`. On Ramon's Windows 11 24H2
-    build, Unix Domain Socket **client `connect()`** fails at the kernel
-    level even though the listener bind succeeds. `createListener()` in
-    `PipeImpl.java` falls back from UDS to TCP on listener failure, but
-    there is **no fallback** if the client connect fails — so the pipe
-    init throws. Reproducible with a 3-line Java program (`Selector.open()`
-    is enough). This is verified against the JDK 25 source.
-  - **Tested and failed**: JBR 21, Microsoft OpenJDK 25.0.2+10 LTS, with
-    `--no-daemon`, `-Dsun.nio.ch.defaultProvider=...`,
+  - **Root cause**: `sun.nio.ch.PipeImpl` (used by *every* Windows Selector
+    implementation — both `WEPollSelectorImpl` **and** the legacy
+    `WindowsSelectorImpl`) constructs its wakeup pipe by calling
+    `createListener(preferUnixDomain = true)` and then opening a client
+    `SocketChannel` against it. `createListener()` will fall back from UDS
+    to TCP on listener bind failure, but there is **no fallback** if the
+    client `connect()` fails — so `UnixDomainSockets.connect0` throws
+    `SocketException: Invalid argument: connect` and pipe init dies. On
+    Ramon's Windows 11 24H2 Enterprise machine the UDS *listener bind*
+    succeeds but the *client connect* fails at the kernel level — almost
+    certainly corporate security software (NinjaOne / Citrix) intercepting
+    AF_UNIX sockets. Reproducible with a 3-line `Selector.open()` program.
+  - **Verified in JDK 17, JDK 21, and JDK 25 source** (extracted from each
+    JDK's `lib/src.zip`). The UDS code path is present in all three — the
+    earlier theory that "JDK 17 uses TCP loopback only" was wrong: both
+    `WEPollSelectorImpl` (JDK 17+ default) and `WindowsSelectorImpl` (the
+    legacy provider still shipped in JDK 17+) call `new PipeImpl(sp, /*
+    AF_UNIX */ true, ...)`. There is no JDK 17/21/25 that avoids UDS in
+    `PipeImpl`.
+  - **Tested and failed (2026-04-07)**: JBR 21 (Android Studio bundled),
+    Microsoft OpenJDK 17.0.18+8 LTS, Microsoft OpenJDK 25.0.2+10 LTS, with
+    `--no-daemon`, removing `org.gradle.jvmargs`, `GRADLE_OPTS`,
+    `-Djava.nio.channels.spi.SelectorProvider=sun.nio.ch.WindowsSelectorProvider`
+    (forces the legacy provider — stack moves to `WindowsSelectorImpl` but
+    still hits UDS), `-Dsun.nio.ch.defaultProvider=...`,
     `JAVA_TOOL_OPTIONS=-Djava.net.preferIPv4Stack=true`, custom
-    `java.io.tmpdir` (both backslash and forward-slash), run from bash and
-    `cmd.exe`, and with the Bash tool sandbox disabled. All fail identically.
-    Gradle `--version` succeeds because the launcher JVM does not open a
-    Selector.
-  - **Workaround for now**: build from Android Studio's UI (Build → Make
-    Project). Its internal Gradle integration appears to bypass the failing
-    path.
-  - **Permanent fix — install JDK 17 specifically.** JDK 17's `PipeImpl`
-    uses **TCP loopback only** — UDS-backed pipes were introduced in JDK 18.
-    Recommended: **Microsoft OpenJDK 17 LTS** or **Adoptium Temurin 17**.
-    After installing, update `JAVA_HOME` in the build commands in section 7
-    to the JDK 17 path. JDK 18+ will not work on this machine until the
-    underlying Windows UDS issue is resolved (likely corporate security
-    software — NinjaOne, Citrix — intercepting AF_UNIX sockets).
-- Phase 1 code has been written and code-reviewed but **not yet verified by
-  a successful gradle build**. Compilation will be re-verified at the start
-  of Phase 2 (either via Android Studio or after JDK 17 is installed).
+    `java.io.tmpdir`, run from bash and `cmd.exe`, Bash tool sandbox
+    disabled. All fail identically at `UnixDomainSockets.connect0`. Gradle
+    `--version` is the only task that "works" because the launcher JVM
+    never opens a Selector.
+  - **Workaround that works**: build from Android Studio's UI
+    (Build → Make Project). Its internal Gradle Tooling API integration
+    uses a different IPC path that bypasses the failing socket.
+  - **True fixes** (none attempted yet, not required for development):
+    1. Ask IT to whitelist / reconfigure the UDS-intercepting security
+       software.
+    2. Run Gradle inside WSL2 where UDS goes through Linux, not the
+       Windows security filter driver.
+    3. Patch / shim `sun.nio.ch.PipeImpl` to force TCP — invasive,
+       not recommended.
+  - **Operational rule for Claude sessions**: do NOT spend turn budget
+    retrying gradle CLI workarounds. Either ask Ramon to build from Android
+    Studio and report back, or restrict verification to manual code review
+    and tell Ramon that compilation is unverified.
+- Phase 1 code has been compiled successfully via **Android Studio
+  (Build → Make Project)** on 2026-04-07. Gradle CLI verification is still
+  blocked by the issue above; Android Studio remains the verification path
+  going forward.
 
 ---
 
