@@ -3,6 +3,7 @@ package com.stretchdaily.app.core.database.dao
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Update
 import com.stretchdaily.app.core.model.BenchmarkLog
 import kotlinx.coroutines.flow.Flow
 
@@ -14,6 +15,9 @@ interface BenchmarkLogDao {
 
     @Query("SELECT * FROM benchmark_logs WHERE benchmarkId = :benchmarkId ORDER BY loggedAt DESC")
     fun observeForBenchmark(benchmarkId: String): Flow<List<BenchmarkLog>>
+
+    @Query("SELECT * FROM benchmark_logs WHERE id = :id")
+    suspend fun getById(id: Long): BenchmarkLog?
 
     /**
      * Latest log per benchmark — what the [CategoryWeightCalculator] consumes
@@ -34,6 +38,9 @@ interface BenchmarkLogDao {
 
     @Insert
     suspend fun insert(log: BenchmarkLog): Long
+
+    @Update
+    suspend fun update(log: BenchmarkLog)
 
     @Query("DELETE FROM benchmark_logs WHERE id = :id")
     suspend fun deleteById(id: Long)
