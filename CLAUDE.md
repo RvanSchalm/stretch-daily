@@ -48,23 +48,41 @@ whole Phase 1 scaffold; PR target is `development`)
 5. Unit tests (this is the core algorithm — test thoroughly)
 
 **Known issues**:
-- **Gradle CLI build blocked on this Windows machine.** Running `./gradlew`
-  (any task) fails with `java.io.IOException: Unable to establish loopback
-  connection` → `SocketException: Invalid argument: connect` inside
-  `UnixDomainSockets.connect0`. Root cause: Android Studio's bundled JBR 21
-  selector tries to create a loopback pipe via Windows Unix Domain Sockets,
-  which fails on this machine. Tried (none worked):
-  `--no-daemon`, removing `org.gradle.jvmargs`, `JAVA_TOOL_OPTIONS=-Djava.net.preferIPv4Stack=true`,
-  custom `java.io.tmpdir`, running through `cmd.exe` instead of bash.
+- **Gradle CLI build blocked on this Windows machine — root cause identified.**
+  Any `./gradlew` invocation that needs a Selector (i.e. anything that starts
+  a daemon, which is every real task) fails with
+  `java.io.IOException: Unable to establish loopback connection` →
+  `SocketException: Invalid argument: connect` inside
+  `UnixDomainSockets.connect0`.
+  - **Root cause**: `WEPollSelectorProvider` (the default Selector provider
+    on Windows since JDK 18) constructs its internal wakeup pipe via
+    `PipeImpl` with `preferUnixDomain = true`. On Ramon's Windows 11 24H2
+    build, Unix Domain Socket **client `connect()`** fails at the kernel
+    level even though the listener bind succeeds. `createListener()` in
+    `PipeImpl.java` falls back from UDS to TCP on listener failure, but
+    there is **no fallback** if the client connect fails — so the pipe
+    init throws. Reproducible with a 3-line Java program (`Selector.open()`
+    is enough). This is verified against the JDK 25 source.
+  - **Tested and failed**: JBR 21, Microsoft OpenJDK 25.0.2+10 LTS, with
+    `--no-daemon`, `-Dsun.nio.ch.defaultProvider=...`,
+    `JAVA_TOOL_OPTIONS=-Djava.net.preferIPv4Stack=true`, custom
+    `java.io.tmpdir` (both backslash and forward-slash), run from bash and
+    `cmd.exe`, and with the Bash tool sandbox disabled. All fail identically.
+    Gradle `--version` succeeds because the launcher JVM does not open a
+    Selector.
   - **Workaround for now**: build from Android Studio's UI (Build → Make
-    Project) — Android Studio's internal Gradle integration bypasses the
-    failing socket path.
-  - **Permanent fix**: install a non-JBR JDK 17 (e.g. Microsoft OpenJDK 17 or
-    Adoptium Temurin 17) and point `JAVA_HOME` at it. Update the build
-    commands in section 7 once that's done.
+    Project). Its internal Gradle integration appears to bypass the failing
+    path.
+  - **Permanent fix — install JDK 17 specifically.** JDK 17's `PipeImpl`
+    uses **TCP loopback only** — UDS-backed pipes were introduced in JDK 18.
+    Recommended: **Microsoft OpenJDK 17 LTS** or **Adoptium Temurin 17**.
+    After installing, update `JAVA_HOME` in the build commands in section 7
+    to the JDK 17 path. JDK 18+ will not work on this machine until the
+    underlying Windows UDS issue is resolved (likely corporate security
+    software — NinjaOne, Citrix — intercepting AF_UNIX sockets).
 - Phase 1 code has been written and code-reviewed but **not yet verified by
   a successful gradle build**. Compilation will be re-verified at the start
-  of Phase 2 (either via Android Studio or a fixed JDK).
+  of Phase 2 (either via Android Studio or after JDK 17 is installed).
 
 ---
 
