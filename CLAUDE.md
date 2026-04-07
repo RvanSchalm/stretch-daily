@@ -22,84 +22,98 @@ areas where the user's monthly benchmarks indicate the most stiffness.
 
 ## 2. Current state
 
-**Last updated**: 2026-04-07 (end of Phase 3 session)
-**Active branch**: `feature/session-flow` (PR target is `development`)
+**Last updated**: 2026-04-07 (end of Phase 4 session)
+**Active branch**: `feature/benchmarks` (PR target is `development`)
 
-**Just completed**: Phase 3 — Session UI Flow
-- `data/SessionRepository.kt` — wraps the session DAOs so the ViewModel
-  doesn't touch Room. Persists a finished `SessionPlan` via `SessionRecord`
-  + `SessionExercise` rows, stamps `Exercise.lastPerformed` for each item,
-  and exposes `currentStreakDays()`. The streak math itself lives in a
-  pure `internal` companion function (`computeStreak`) so it can be unit
-  tested without Room. Anchored on today OR yesterday (1-day grace window).
-- `ui/session/SessionUiState.kt` — sealed hierarchy
-  `Loading | Preview | FollowAlong | Complete | Error` plus a `Side` enum
-  (`NONE | LEFT | RIGHT`). `FollowAlong` carries `currentIndex`, `side`,
-  `remainingSeconds`, `totalSecondsForPhase`, `isPaused` plus a
-  `progressFraction` derived getter for the linear progress bar.
-- `ui/session/SessionViewModel.kt` — `@HiltViewModel`, single source of
-  truth across all three session screens. `generate()` runs at init and
-  whenever the user retries; `swap(index)` swaps an exercise in-place from
-  the same category, capped at 120s; `start()` flips Preview → FollowAlong
-  and boots a 1 Hz `delay`-based timer coroutine; `tick()` is `internal`
-  for tests; `togglePause()` just sets a flag (timer keeps running but
-  no-ops); `skip()` calls `advance()` directly. Unilateral exercises split
-  the budget LEFT (ceiling) → RIGHT (floor) via `phaseSeconds`. `finish()`
-  cancels the timer, calls `repository.completeSession`, and emits
-  `Complete` with the new streak count.
-- `ui/session/SessionPreviewScreen.kt` — Material3 Scaffold + TopAppBar.
-  Branches on state (Loading spinner / Error + retry / Preview list).
-  Shows a `PlanSummary` (X exercises, ~MM:SS), a `LazyColumn` of
-  `ExerciseCard`s (name, category, duration, swap icon, optional
-  `ForcedBadge` for `item.isForced`), and a "Start session" button.
-- `ui/session/SessionFollowAlongScreen.kt` — progress header, animation
-  placeholder box, exercise name + category + side badge, bullet cue list,
-  big countdown timer + phase progress bar, Pause/Resume + Skip buttons.
-- `ui/session/SessionCompleteScreen.kt` — checkmark hero, three stat
-  cards (exercises / duration / streak), Done button.
-- `ui/home/HomeScreen.kt` — placeholder landing screen (Phase 5 will
-  replace it with the real dashboard). Just title + "Start today's
-  session" CTA so Phase 3 is demoable end-to-end.
-- `ui/navigation/StretchDailyNavHost.kt` — `Routes` constants and a
-  nested `navigation(...)` graph for the session leg. All three session
-  screens resolve `SessionViewModel` via `hiltViewModel(parentEntry)`
-  scoped to the `SESSION_GRAPH` back stack entry — that's how the running
-  timer and `Preview` plan survive the Preview → FollowAlong transition.
-  The FollowAlong destination watches for `SessionUiState.Complete` and
-  navigates forward via `LaunchedEffect`.
-- `MainActivity.kt` — Phase 1 placeholder text removed; now hosts
-  `StretchDailyNavHost()` inside the theme.
+**Just completed**: Phase 4 — Benchmarks Tab
+- `core/benchmark/TierResolver.kt` — resolves a raw numeric reading to a
+  `FlexibilityTier` for each of the 9 numeric benchmarks. Uses hard-coded
+  per-benchmark breakpoint profiles rather than parsing the free-text
+  `Benchmark.tierRanges` strings — those have awkward copy like
+  `"> 15° up"` and `"< 0 cm (Finger Overlap)"` that's much cleaner to
+  keep for display only. Five benchmarks are ASCENDING (higher = more
+  flexible: cervical rotation, thoracic rotation, knee-to-wall, wrist
+  extension, wrist flexion); four are DESCENDING (lower = more flexible:
+  Apley Scratch gap, Butterfly knee-to-floor, Sit and Reach, Thomas Test
+  — which goes signed with positive = thigh up = stiff). Returns `null`
+  for the categorical ATG Split Squat, which is picked directly.
+- `data/BenchmarkRepository.kt` — wraps `BenchmarkDao` + `BenchmarkLogDao`
+  + `TierResolver`. `logNumeric()` parses the raw string (accepts `,` as
+  decimal separator) and re-resolves the tier; `logCategorical()` trusts
+  the tier the user picked; `updateLog()` handles both paths for the
+  edit flow. `isBenchmarksDue()` delegates to an `internal` companion
+  function `computeBenchmarksDue` so the banner logic stays unit-testable
+  without Room — returns `true` if never logged, > 30 days stale, or on
+  the 1st of the month when the last log wasn't today.
+- `BenchmarkLogDao` gained `getById` and `@Update` so the history screen
+  can edit individual rows without delete + insert.
+- `ui/benchmarks/BenchmarksUiState.kt` — `BenchmarksUiState`
+  (`Loading | Loaded | Error`) plus `BenchmarkRow` (catalog entry +
+  latest log) and `LogDialogState` (benchmark, editing id, raw input,
+  selected tier, error) owned by the ViewModel so rotations don't lose
+  pending input.
+- `ui/benchmarks/BenchmarksViewModel.kt` — `@HiltViewModel`. Backs both
+  the list and the history screen. `refresh()` rebuilds the row list
+  from the repo; `openLogDialog` / `openEditDialog` seed the dialog
+  state; `submitDialog()` branches on `BenchmarkInputType` and calls
+  `logNumeric` / `logCategorical` / `updateLog` with error surfacing;
+  `deleteLog` forwards + refreshes.
+- `ui/benchmarks/BenchmarksScreen.kt` — Material3 Scaffold + TopAppBar.
+  `LazyColumn` of `BenchmarkCard`s: name + category chip, latest value
+  + `TierChip`, Log button, history icon. Tapping anywhere on the card
+  or the "Log …" button opens the dialog.
+- `ui/benchmarks/BenchmarkHistoryScreen.kt` — per-benchmark log history.
+  Streams `repository.observeLogsFor(id)` via `Flow.collectAsState`.
+  Each row shows value + resolved tier + formatted date plus Edit /
+  Delete icon buttons. Shares the same dialog as the list screen.
+- `ui/benchmarks/LogBenchmarkDialog.kt` — modal dialog driven entirely
+  by `LogDialogState`. Numeric body shows the tier range hints for the
+  current benchmark and a `KeyboardType.Number` OutlinedTextField.
+  Categorical body shows 5 tier buttons (Stiff → Very Flexible) each
+  with the qualitative description. Error text rendered inline.
+- `ui/home/HomeViewModel.kt` — minimal ViewModel for Home, only job is
+  to compute `benchmarksDue` from the repo. Will grow in Phase 5.
+- `ui/home/HomeScreen.kt` — now takes `HomeUiState`. Adds a
+  `BenchmarksDueBanner` (warning icon + copy + "Log" button) that
+  renders only when `state.benchmarksDue`, plus an outlined
+  "Benchmarks" CTA under the existing Start Session button.
+- `ui/navigation/StretchDailyNavHost.kt` — new `Routes.BENCHMARKS_GRAPH`
+  nested graph (list + history). `BenchmarksViewModel` is scoped to the
+  graph entry via the same `hiltViewModel(parentEntry)` pattern used
+  for the session flow, so the dialog state and list refresh stay
+  consistent between the list and the history screen. `HomeScreen`
+  gains a `LaunchedEffect` that calls `HomeViewModel.refresh()` on
+  re-entry so the banner clears after the user logs.
 - JVM unit tests:
-  - `app/src/test/java/.../data/SessionRepositoryStreakTest.kt` —
-    7 cases covering empty / today / consecutive / same-day-dedup /
-    gap / yesterday-grace / old-block-doesn't-count.
-  - `app/src/test/java/.../ui/session/SessionViewModelTest.kt` —
-    11 cases driving the public API through every transition with
-    mockk fakes for `LongevityEngine` and `SessionRepository` and an
-    `UnconfinedTestDispatcher`. Covers init → Preview, init → Error,
-    start with bilateral, start with unilateral (begins on LEFT), tick
-    decrement, paused tick is no-op, tick rollover advances, unilateral
-    LEFT → RIGHT → next, finish persists + emits Complete with streak,
-    skip, and the `phaseSeconds` ceiling/floor math.
+  - `app/src/test/java/.../core/benchmark/TierResolverTest.kt` — 12
+    cases: each ascending and descending benchmark's five tiers,
+    on-breakpoint edge cases for both directions, Sit-and-Reach's
+    negative range, Thomas Test's signed "up/down", unknown ID + the
+    categorical ATG Split Squat both returning null, and a loop
+    asserting `handles()` for every numeric benchmark ID.
+  - `app/src/test/java/.../data/BenchmarkRepositoryDueTest.kt` — 6
+    cases: never-logged → due, fresh → not due, exactly-30-days → not
+    due, 31-days → due, 1st-of-month with yesterday's log → due,
+    1st-of-month already-logged-today → not due.
+  - `app/src/test/java/.../ui/benchmarks/BenchmarksViewModelTest.kt` —
+    12 cases with mockk + `UnconfinedTestDispatcher`. Covers refresh
+    (empty + with logs + error), openLog / openEdit dialog seeding,
+    numeric submit (success, failure-message surfacing, empty guard),
+    categorical submit (success, no-selection guard), edit numeric
+    updateLog forwarding, and delete + refresh.
 
-Phase 3 has not yet been compiled — Ramon will run Build → Make Project
+Phase 4 has not yet been compiled — Ramon will run Build → Make Project
 in Android Studio to verify. Gradle CLI is still blocked on this machine
 (see Known issues — unchanged from Phase 2).
 
-**Next up**: Phase 4 — Benchmarks Tab (`feature/benchmarks`)
-1. `TierResolver.kt` — parse the stored range strings on each Benchmark
-   into numeric thresholds and resolve a logged value to a
-   `FlexibilityTier`. Handles direction-reversed ranges (Sit and Reach).
-2. `BenchmarksScreen.kt` + `BenchmarksViewModel.kt` — vertical list of
-   all 10 benchmarks; numeric input for the 9 numeric ones, 5-button
-   tier picker for ATG Split Squat (categorical). Save inserts a
-   `BenchmarkLog` row with raw value + resolved tier.
-3. Benchmark history (per-benchmark log list, edit per row).
-4. Connect `CategoryWeightCalculator` to real data — the engine already
-   reads logs but with no benchmarks logged it's been falling through
-   to the AVERAGE default.
-5. Home banner reminding the user to log when > 30 days old or 1st of
-   the month.
+**Next up**: Phase 5 — Dashboard & Bottom Navigation
+(`feature/dashboard`)
+1. Replace the Home placeholder with the real dashboard: current
+   streak, this-week volume, category heatmap fed by the latest
+   benchmark tiers.
+2. `MaterialTheme` bottom nav bar with Home / Benchmarks / Settings
+   tabs. Benchmarks leg moves from a push-route to a tab switch.
+3. Session history screen (list of completed `SessionRecord`s).
 
 **Known issues**:
 - **Gradle CLI build blocked on this Windows machine — no JDK-side fix
@@ -184,10 +198,21 @@ in Android Studio to verify. Gradle CLI is still blocked on this machine
   `hiltViewModel(parentEntry)`. The 1 Hz timer is a `delay`-based
   coroutine inside `viewModelScope`; the `tick()` function is `internal`
   so unit tests can drive it without a real dispatcher.
-- **Navigation**: Compose Navigation with string routes. The session
-  flow is a nested `navigation(...)` graph (`SESSION_GRAPH`) so all three
-  session destinations share one ViewModel + back stack entry. Top-level
-  routes are constants in `ui/navigation/StretchDailyNavHost.kt`.
+- **Navigation**: Compose Navigation with string routes. Two nested
+  `navigation(...)` graphs so far: `SESSION_GRAPH` (preview → follow →
+  complete) and `BENCHMARKS_GRAPH` (list → history). Both scope their
+  ViewModel to the graph entry via `hiltViewModel(parentEntry)` so
+  multi-screen state (the running session timer, the log dialog) stays
+  coherent across destinations. Top-level routes are constants in
+  `ui/navigation/StretchDailyNavHost.kt`.
+- **Benchmarks pipeline**: `TierResolver` (pure Kotlin, hard-coded
+  per-benchmark breakpoint profiles) → `BenchmarkRepository` (DAO
+  wrapper + CRUD on logs + `isBenchmarksDue` nagging helper) →
+  `BenchmarksViewModel` (list + dialog + history) → three Compose
+  screens sharing one ViewModel via the nested graph. Five benchmarks
+  are ASCENDING (higher = more flexible), four are DESCENDING (lower =
+  more flexible — Apley, Butterfly, Sit and Reach, Thomas), and the one
+  categorical benchmark (ATG Split Squat) is tier-picked directly.
 
 ---
 
