@@ -11,6 +11,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
 
 /**
  * One stop for reading and writing session history. The [SessionViewModel] talks
@@ -60,6 +61,24 @@ class SessionRepository @Inject constructor(
         return computeStreak(timestamps, clock.now(), zoneId)
     }
 
+    /** Total number of completed sessions ever. */
+    suspend fun totalSessions(): Int = sessionDao.getTotalCount()
+
+    /** Epoch millis of the most recently completed session, or null if none. */
+    suspend fun lastCompletedAt(): Long? = sessionDao.getLastCompletedAt()
+
+    /**
+     * Number of completed sessions in the last seven calendar days (inclusive
+     * of today). Used by the dashboard "this week" KPI card.
+     */
+    suspend fun sessionsThisWeek(zoneId: ZoneId = ZoneId.systemDefault()): Int {
+        val timestamps = sessionDao.getAllCompletionTimestamps()
+        return countSessionsInLastDays(timestamps, clock.now(), days = 7, zoneId = zoneId)
+    }
+
+    /** All session records, newest first. Backs the session history screen. */
+    fun observeAllSessions(): Flow<List<SessionRecord>> = sessionDao.observeAllRecords()
+
     companion object {
         /**
          * Pure streak math, kept public so it can be unit-tested without Room.
@@ -89,6 +108,26 @@ class SessionRepository @Inject constructor(
                 anchor = anchor.minusDays(1)
             }
             return streak
+        }
+
+        /**
+         * Pure count of completion timestamps that fall within the trailing
+         * [days]-day window ending today (inclusive). Extracted so it can be
+         * unit tested without Room.
+         */
+        internal fun countSessionsInLastDays(
+            completionTimestamps: List<Long>,
+            now: Long,
+            days: Int,
+            zoneId: ZoneId = ZoneId.systemDefault(),
+        ): Int {
+            require(days >= 1) { "days must be >= 1" }
+            val today = LocalDate.ofInstant(Instant.ofEpochMilli(now), zoneId)
+            val earliest = today.minusDays((days - 1).toLong())
+            return completionTimestamps.count {
+                val date = LocalDate.ofInstant(Instant.ofEpochMilli(it), zoneId)
+                !date.isBefore(earliest) && !date.isAfter(today)
+            }
         }
     }
 }
