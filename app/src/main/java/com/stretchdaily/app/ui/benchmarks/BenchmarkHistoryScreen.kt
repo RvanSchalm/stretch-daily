@@ -56,6 +56,7 @@ fun BenchmarkHistoryScreen(
     viewModel: BenchmarksViewModel,
     benchmarkId: String,
     onBack: () -> Unit,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
     // Resolve the benchmark once; re-resolving would flicker on re-composition.
     var benchmark by remember { mutableStateOf<Benchmark?>(null) }
@@ -111,6 +112,7 @@ fun BenchmarkHistoryScreen(
         } else {
             HistoryList(
                 padding = padding,
+                bottomInset = contentPadding.calculateBottomPadding(),
                 benchmark = bm,
                 logs = logs,
                 onEdit = { log -> viewModel.openEditDialog(bm, log) },
@@ -133,6 +135,7 @@ fun BenchmarkHistoryScreen(
 @Composable
 private fun HistoryList(
     padding: PaddingValues,
+    bottomInset: androidx.compose.ui.unit.Dp,
     benchmark: Benchmark,
     logs: List<BenchmarkLog>,
     onEdit: (BenchmarkLog) -> Unit,
@@ -157,7 +160,12 @@ private fun HistoryList(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        contentPadding = PaddingValues(
+            start = 16.dp,
+            end = 16.dp,
+            top = 12.dp,
+            bottom = 12.dp + bottomInset,
+        ),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         items(logs, key = { it.id }) { log ->

@@ -50,6 +50,7 @@ fun BenchmarksScreen(
     viewModel: BenchmarksViewModel,
     onBack: () -> Unit,
     onOpenHistory: (Benchmark) -> Unit,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
     val state by viewModel.state.collectAsState()
     val dialog by viewModel.dialog.collectAsState()
@@ -95,6 +96,7 @@ fun BenchmarksScreen(
             }
             is BenchmarksUiState.Loaded -> BenchmarkList(
                 padding = padding,
+                bottomInset = contentPadding.calculateBottomPadding(),
                 rows = snapshot.rows,
                 onLog = viewModel::openLogDialog,
                 onHistory = onOpenHistory,
@@ -130,6 +132,7 @@ private fun CenteredBox(
 @Composable
 private fun BenchmarkList(
     padding: PaddingValues,
+    bottomInset: androidx.compose.ui.unit.Dp,
     rows: List<BenchmarkRow>,
     onLog: (Benchmark) -> Unit,
     onHistory: (Benchmark) -> Unit,
@@ -138,7 +141,12 @@ private fun BenchmarkList(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        contentPadding = PaddingValues(
+            start = 16.dp,
+            end = 16.dp,
+            top = 12.dp,
+            bottom = 12.dp + bottomInset,
+        ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         items(rows, key = { it.benchmark.id }) { row ->

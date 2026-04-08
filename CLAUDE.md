@@ -22,98 +22,86 @@ areas where the user's monthly benchmarks indicate the most stiffness.
 
 ## 2. Current state
 
-**Last updated**: 2026-04-07 (end of Phase 4 session)
-**Active branch**: `feature/benchmarks` (PR target is `development`)
+**Last updated**: 2026-04-08 (end of Phase 5 session)
+**Active branch**: `feature/dashboard` (PR target is `development`)
 
-**Just completed**: Phase 4 — Benchmarks Tab
-- `core/benchmark/TierResolver.kt` — resolves a raw numeric reading to a
-  `FlexibilityTier` for each of the 9 numeric benchmarks. Uses hard-coded
-  per-benchmark breakpoint profiles rather than parsing the free-text
-  `Benchmark.tierRanges` strings — those have awkward copy like
-  `"> 15° up"` and `"< 0 cm (Finger Overlap)"` that's much cleaner to
-  keep for display only. Five benchmarks are ASCENDING (higher = more
-  flexible: cervical rotation, thoracic rotation, knee-to-wall, wrist
-  extension, wrist flexion); four are DESCENDING (lower = more flexible:
-  Apley Scratch gap, Butterfly knee-to-floor, Sit and Reach, Thomas Test
-  — which goes signed with positive = thigh up = stiff). Returns `null`
-  for the categorical ATG Split Squat, which is picked directly.
-- `data/BenchmarkRepository.kt` — wraps `BenchmarkDao` + `BenchmarkLogDao`
-  + `TierResolver`. `logNumeric()` parses the raw string (accepts `,` as
-  decimal separator) and re-resolves the tier; `logCategorical()` trusts
-  the tier the user picked; `updateLog()` handles both paths for the
-  edit flow. `isBenchmarksDue()` delegates to an `internal` companion
-  function `computeBenchmarksDue` so the banner logic stays unit-testable
-  without Room — returns `true` if never logged, > 30 days stale, or on
-  the 1st of the month when the last log wasn't today.
-- `BenchmarkLogDao` gained `getById` and `@Update` so the history screen
-  can edit individual rows without delete + insert.
-- `ui/benchmarks/BenchmarksUiState.kt` — `BenchmarksUiState`
-  (`Loading | Loaded | Error`) plus `BenchmarkRow` (catalog entry +
-  latest log) and `LogDialogState` (benchmark, editing id, raw input,
-  selected tier, error) owned by the ViewModel so rotations don't lose
-  pending input.
-- `ui/benchmarks/BenchmarksViewModel.kt` — `@HiltViewModel`. Backs both
-  the list and the history screen. `refresh()` rebuilds the row list
-  from the repo; `openLogDialog` / `openEditDialog` seed the dialog
-  state; `submitDialog()` branches on `BenchmarkInputType` and calls
-  `logNumeric` / `logCategorical` / `updateLog` with error surfacing;
-  `deleteLog` forwards + refreshes.
-- `ui/benchmarks/BenchmarksScreen.kt` — Material3 Scaffold + TopAppBar.
-  `LazyColumn` of `BenchmarkCard`s: name + category chip, latest value
-  + `TierChip`, Log button, history icon. Tapping anywhere on the card
-  or the "Log …" button opens the dialog.
-- `ui/benchmarks/BenchmarkHistoryScreen.kt` — per-benchmark log history.
-  Streams `repository.observeLogsFor(id)` via `Flow.collectAsState`.
-  Each row shows value + resolved tier + formatted date plus Edit /
-  Delete icon buttons. Shares the same dialog as the list screen.
-- `ui/benchmarks/LogBenchmarkDialog.kt` — modal dialog driven entirely
-  by `LogDialogState`. Numeric body shows the tier range hints for the
-  current benchmark and a `KeyboardType.Number` OutlinedTextField.
-  Categorical body shows 5 tier buttons (Stiff → Very Flexible) each
-  with the qualitative description. Error text rendered inline.
-- `ui/home/HomeViewModel.kt` — minimal ViewModel for Home, only job is
-  to compute `benchmarksDue` from the repo. Will grow in Phase 5.
-- `ui/home/HomeScreen.kt` — now takes `HomeUiState`. Adds a
-  `BenchmarksDueBanner` (warning icon + copy + "Log" button) that
-  renders only when `state.benchmarksDue`, plus an outlined
-  "Benchmarks" CTA under the existing Start Session button.
-- `ui/navigation/StretchDailyNavHost.kt` — new `Routes.BENCHMARKS_GRAPH`
-  nested graph (list + history). `BenchmarksViewModel` is scoped to the
-  graph entry via the same `hiltViewModel(parentEntry)` pattern used
-  for the session flow, so the dialog state and list refresh stay
-  consistent between the list and the history screen. `HomeScreen`
-  gains a `LaunchedEffect` that calls `HomeViewModel.refresh()` on
-  re-entry so the banner clears after the user logs.
+**Just completed**: Phase 5 — Dashboard & Bottom Navigation
+- `data/SessionRepository.kt` — added dashboard helpers:
+  `totalSessions()`, `lastCompletedAt()`, `sessionsThisWeek()` and
+  `observeAllSessions()` (Flow). The trailing-window math lives as an
+  `internal` companion function `countSessionsInLastDays(timestamps,
+  now, days, zoneId)` so it stays unit-testable without Room — same
+  pattern as `computeStreak`.
+- `ui/home/HomeViewModel.kt` — completely rewritten. Single
+  `refresh()` call fans out to: `BenchmarkRepository.isBenchmarksDue`,
+  `SessionRepository.currentStreakDays / totalSessions /
+  sessionsThisWeek / lastCompletedAt`, plus `getAllBenchmarks` +
+  `getLatestLogs` fed into the engine's `CategoryWeightCalculator` to
+  produce one `CategoryHeatmapRow` per `Category` enum entry. The
+  fractional category weight is snapped to its closest
+  `FlexibilityTier` via `tierFromWeight()` (also `internal` for tests),
+  and `STIFF` / `BELOW_AVERAGE` rows expose `isStiff = true` so the
+  view can light them up in orange.
+- `ui/home/HomeScreen.kt` — replaced the placeholder with the real
+  dashboard. Header (last-session relative label), optional
+  benchmarks-due banner (now wired to navigate the bottom nav to the
+  Benchmarks tab), three KPI cards (streak / this week / total), the
+  category heatmap with horizontal weight bars normalized against
+  STIFF (3.0), and the primary "Start session" CTA. Empty heatmap
+  state shows an explanatory hint instead of seven AVERAGE bars.
+- `ui/session/SessionHistoryScreen.kt` +
+  `ui/session/SessionHistoryViewModel.kt` — new read-only history
+  reachable from Settings. The VM exposes a sealed
+  `SessionHistoryUiState` (`Loading | Empty | Loaded`) backed by
+  `repository.observeAllSessions()` via `stateIn(WhileSubscribed)`.
+  Each row shows the formatted date, exercise count, and duration.
+- `ui/settings/SettingsScreen.kt` — Phase 5 placeholder so the third
+  bottom-nav tab has a real destination. One live row (Session
+  history) plus three "Coming soon" rows for Phase 7 (audio cues,
+  export/import, delete all data).
+- `ui/navigation/StretchDailyNavHost.kt` — wrapped the `NavHost` in a
+  top-level `Scaffold` that owns a `NavigationBar` (Home / Benchmarks
+  / Settings). The bar hides on the session flow + the session
+  history detail so those stay immersive (`BOTTOM_NAV_ROUTES` set
+  controls visibility). Tab clicks use the standard saveState +
+  restoreState + popUpTo(start) pattern. The parent Scaffold sets
+  `contentWindowInsets = WindowInsets(0)` so the inner screen
+  Scaffolds keep handling status-bar insets the way they did before
+  — only the bottom-bar height bubbles down via the new
+  `contentPadding` parameter that `HomeScreen`, `BenchmarksScreen`,
+  `BenchmarkHistoryScreen`, and `SettingsScreen` all opt in to.
+- `BenchmarksScreen.kt` + `BenchmarkHistoryScreen.kt` — accept a
+  `contentPadding` parameter and pass its bottom inset into their
+  `LazyColumn` `contentPadding` so the last card isn't covered by
+  the nav bar.
 - JVM unit tests:
-  - `app/src/test/java/.../core/benchmark/TierResolverTest.kt` — 12
-    cases: each ascending and descending benchmark's five tiers,
-    on-breakpoint edge cases for both directions, Sit-and-Reach's
-    negative range, Thomas Test's signed "up/down", unknown ID + the
-    categorical ATG Split Squat both returning null, and a loop
-    asserting `handles()` for every numeric benchmark ID.
-  - `app/src/test/java/.../data/BenchmarkRepositoryDueTest.kt` — 6
-    cases: never-logged → due, fresh → not due, exactly-30-days → not
-    due, 31-days → due, 1st-of-month with yesterday's log → due,
-    1st-of-month already-logged-today → not due.
-  - `app/src/test/java/.../ui/benchmarks/BenchmarksViewModelTest.kt` —
-    12 cases with mockk + `UnconfinedTestDispatcher`. Covers refresh
-    (empty + with logs + error), openLog / openEdit dialog seeding,
-    numeric submit (success, failure-message surfacing, empty guard),
-    categorical submit (success, no-selection guard), edit numeric
-    updateLog forwarding, and delete + refresh.
+  - `app/src/test/java/.../data/SessionRepositoryWindowTest.kt` — 6
+    cases for `countSessionsInLastDays`: empty / today / full
+    trailing 7-day / 8-days-ago cutoff / multiple sessions same day /
+    future timestamp excluded.
+  - `app/src/test/java/.../ui/home/HomeViewModelTest.kt` — 6 cases
+    with mockk + `UnconfinedTestDispatcher` and a real
+    `CategoryWeightCalculator`. Covers loaded state shape,
+    empty-log heatmap defaulting to AVERAGE, a stiff log lighting
+    up its category, fractional-weight snap to BELOW_AVERAGE,
+    `tierFromWeight()` edges, and init triggering an immediate
+    refresh.
+  - `app/src/test/java/.../ui/session/SessionHistoryViewModelTest.kt`
+    — empty → Empty and non-empty → Loaded transitions via a
+    `MutableStateFlow` fake of `observeAllSessions`.
 
-Phase 4 has not yet been compiled — Ramon will run Build → Make Project
-in Android Studio to verify. Gradle CLI is still blocked on this machine
+Phase 5 was compiled and verified by Ramon via Android Studio
+(Build → Make Project) on 2026-04-08 — dashboard renders, bottom nav
+switches tabs cleanly, immersive routes hide the bar, and all new
+JVM unit tests pass. Gradle CLI remains blocked on this machine
 (see Known issues — unchanged from Phase 2).
 
-**Next up**: Phase 5 — Dashboard & Bottom Navigation
-(`feature/dashboard`)
-1. Replace the Home placeholder with the real dashboard: current
-   streak, this-week volume, category heatmap fed by the latest
-   benchmark tiers.
-2. `MaterialTheme` bottom nav bar with Home / Benchmarks / Settings
-   tabs. Benchmarks leg moves from a push-route to a tab switch.
-3. Session history screen (list of completed `SessionRecord`s).
+**Next up**: Phase 6 — Progress Tab (`feature/progress`)
+1. Per-benchmark line charts of tier progression over time using the
+   Vico charting library (Compose-native).
+2. Surface the progress UI somewhere — likely a fourth bottom-nav
+   tab or a Progress link from Settings; decide during the phase.
+3. Edge cases: no data, single data point, very long histories.
 
 **Known issues**:
 - **Gradle CLI build blocked on this Windows machine — no JDK-side fix
@@ -198,13 +186,28 @@ in Android Studio to verify. Gradle CLI is still blocked on this machine
   `hiltViewModel(parentEntry)`. The 1 Hz timer is a `delay`-based
   coroutine inside `viewModelScope`; the `tick()` function is `internal`
   so unit tests can drive it without a real dispatcher.
-- **Navigation**: Compose Navigation with string routes. Two nested
-  `navigation(...)` graphs so far: `SESSION_GRAPH` (preview → follow →
-  complete) and `BENCHMARKS_GRAPH` (list → history). Both scope their
-  ViewModel to the graph entry via `hiltViewModel(parentEntry)` so
-  multi-screen state (the running session timer, the log dialog) stays
-  coherent across destinations. Top-level routes are constants in
+- **Navigation**: Compose Navigation with string routes. The
+  `NavHost` lives inside an outer `Scaffold` that owns a Material3
+  `NavigationBar` (Home / Benchmarks / Settings). The outer Scaffold
+  sets `contentWindowInsets = WindowInsets(0)` so the inner screen
+  Scaffolds keep handling status-bar insets themselves — only the
+  bottom-bar height bubbles down via a `contentPadding` parameter
+  that the per-tab screens opt into. Two nested `navigation(...)`
+  graphs: `SESSION_GRAPH` (preview → follow → complete) and
+  `BENCHMARKS_GRAPH` (list → history). Both scope their ViewModel to
+  the graph entry via `hiltViewModel(parentEntry)` so multi-screen
+  state (the running session timer, the log dialog) stays coherent
+  across destinations. The session flow and the session history
+  detail are immersive (no bottom bar) — controlled by the
+  `BOTTOM_NAV_ROUTES` set. Top-level routes are constants in
   `ui/navigation/StretchDailyNavHost.kt`.
+- **Dashboard**: `HomeViewModel` joins streak math, total/weekly
+  volume, last-session timestamp, benchmarks-due banner, and the
+  engine's `CategoryWeightCalculator` into a single `HomeUiState`
+  pass. `HomeScreen` snaps each fractional category weight to its
+  closest `FlexibilityTier` for display and renders a horizontal
+  weight bar normalized against `STIFF` (3.0). Stiff /
+  below-average rows get the orange border treatment.
 - **Benchmarks pipeline**: `TierResolver` (pure Kotlin, hard-coded
   per-benchmark breakpoint profiles) → `BenchmarkRepository` (DAO
   wrapper + CRUD on logs + `isBenchmarksDue` nagging helper) →
@@ -266,29 +269,51 @@ app/src/main/java/com/stretchdaily/app/
 │       ├── DatabaseModule.kt       # Hilt — database, DAOs, ApplicationScope
 │       └── EngineModule.kt         # Hilt — Clock binding
 ├── data/
-│   └── SessionRepository.kt        # Persists finished sessions, computes streak
+│   ├── BenchmarkRepository.kt      # benchmark CRUD + isBenchmarksDue
+│   └── SessionRepository.kt        # streak / weekly / total / lastAt + observeAllSessions
 └── ui/
     ├── theme/                      # Color, Type, Theme
     ├── navigation/
-    │   └── StretchDailyNavHost.kt  # Routes + nested session NavGraph
+    │   └── StretchDailyNavHost.kt  # Routes + bottom nav + nested graphs
     ├── home/
-    │   └── HomeScreen.kt           # Phase 3 placeholder landing screen
-    └── session/
-        ├── SessionUiState.kt       # sealed Loading|Preview|FollowAlong|Complete|Error + Side
-        ├── SessionViewModel.kt     # @HiltViewModel — generate/start/tick/pause/skip/finish
-        ├── SessionPreviewScreen.kt # exercise list + swap + start
-        ├── SessionFollowAlongScreen.kt # countdown + cues + pause/skip
-        └── SessionCompleteScreen.kt # checkmark + stat cards + done
+    │   ├── HomeViewModel.kt        # Joins streak / volume / heatmap / due
+    │   └── HomeScreen.kt           # KPI cards + heatmap + Start CTA
+    ├── benchmarks/
+    │   ├── BenchmarksUiState.kt
+    │   ├── BenchmarksViewModel.kt
+    │   ├── BenchmarksScreen.kt
+    │   ├── BenchmarkHistoryScreen.kt
+    │   └── LogBenchmarkDialog.kt
+    ├── session/
+    │   ├── SessionUiState.kt
+    │   ├── SessionViewModel.kt
+    │   ├── SessionPreviewScreen.kt
+    │   ├── SessionFollowAlongScreen.kt
+    │   ├── SessionCompleteScreen.kt
+    │   ├── SessionHistoryViewModel.kt   # Loading|Empty|Loaded
+    │   └── SessionHistoryScreen.kt      # read-only newest-first list
+    └── settings/
+        └── SettingsScreen.kt       # Phase 5 placeholder + Session history link
 
 app/src/test/java/com/stretchdaily/app/
 ├── core/engine/
 │   ├── CategoryWeightCalculatorTest.kt
 │   ├── SelectionShieldTest.kt
 │   └── SessionBuilderTest.kt       # 5-8 in 600-900s, statistical bias check
+├── core/benchmark/
+│   └── TierResolverTest.kt
 ├── data/
-│   └── SessionRepositoryStreakTest.kt  # streak math: empty/today/gap/grace
-└── ui/session/
-    └── SessionViewModelTest.kt     # state transitions via mockk + UnconfinedTestDispatcher
+│   ├── BenchmarkRepositoryDueTest.kt
+│   ├── SessionRepositoryStreakTest.kt   # streak math: empty/today/gap/grace
+│   └── SessionRepositoryWindowTest.kt   # trailing N-day count helper
+└── ui/
+    ├── benchmarks/
+    │   └── BenchmarksViewModelTest.kt
+    ├── home/
+    │   └── HomeViewModelTest.kt    # mockk-driven dashboard transitions
+    └── session/
+        ├── SessionViewModelTest.kt
+        └── SessionHistoryViewModelTest.kt
 ```
 
 Reference materials (gitignored — kept locally only):

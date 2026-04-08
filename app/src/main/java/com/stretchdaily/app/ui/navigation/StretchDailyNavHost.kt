@@ -1,15 +1,31 @@
 package com.stretchdaily.app.ui.navigation
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
@@ -20,14 +36,16 @@ import com.stretchdaily.app.ui.home.HomeScreen
 import com.stretchdaily.app.ui.home.HomeViewModel
 import com.stretchdaily.app.ui.session.SessionCompleteScreen
 import com.stretchdaily.app.ui.session.SessionFollowAlongScreen
+import com.stretchdaily.app.ui.session.SessionHistoryScreen
 import com.stretchdaily.app.ui.session.SessionPreviewScreen
 import com.stretchdaily.app.ui.session.SessionUiState
 import com.stretchdaily.app.ui.session.SessionViewModel
+import com.stretchdaily.app.ui.settings.SettingsScreen
 
 /**
  * Top-level routes. Each session leg lives inside the [Routes.SESSION_GRAPH]
  * nested graph so they can share a single [SessionViewModel] instance via the
- * graph's NavBackStackEntry.
+ * graph's NavBackStackEntry. Same trick is used for the benchmarks graph.
  */
 object Routes {
     const val HOME = "home"
@@ -38,26 +56,124 @@ object Routes {
     const val BENCHMARKS_GRAPH = "benchmarks_graph"
     const val BENCHMARKS_LIST = "benchmarks/list"
     const val BENCHMARK_HISTORY = "benchmarks/history/{benchmarkId}"
+    const val SETTINGS = "settings"
+    const val SESSION_HISTORY = "settings/sessions"
     fun benchmarkHistory(benchmarkId: String) = "benchmarks/history/$benchmarkId"
     const val ARG_BENCHMARK_ID = "benchmarkId"
 }
 
+private data class TabItem(
+    val route: String,
+    val label: String,
+    val icon: ImageVector,
+)
+
+private val BOTTOM_NAV_TABS = listOf(
+    TabItem(Routes.HOME, "Home", Icons.Filled.Home),
+    TabItem(Routes.BENCHMARKS_GRAPH, "Benchmarks", Icons.Filled.Star),
+    TabItem(Routes.SETTINGS, "Settings", Icons.Filled.Settings),
+)
+
+/**
+ * Routes that own the bottom navigation bar. The session flow and the
+ * session history detail are immersive and hide the bar.
+ */
+private val BOTTOM_NAV_ROUTES = setOf(
+    Routes.HOME,
+    Routes.BENCHMARKS_LIST,
+    Routes.BENCHMARK_HISTORY,
+    Routes.SETTINGS,
+)
+
 @Composable
 fun StretchDailyNavHost(navController: NavHostController = rememberNavController()) {
-    NavHost(navController = navController, startDestination = Routes.HOME) {
-        composable(Routes.HOME) {
-            val viewModel: HomeViewModel = hiltViewModel()
-            val state by viewModel.state.collectAsState()
-            // Refresh the banner each time Home re-enters composition.
-            LaunchedEffect(Unit) { viewModel.refresh() }
-            HomeScreen(
-                state = state,
-                onStartSession = { navController.navigate(Routes.SESSION_GRAPH) },
-                onOpenBenchmarks = { navController.navigate(Routes.BENCHMARKS_GRAPH) },
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
+    val showBottomBar = currentRoute in BOTTOM_NAV_ROUTES
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        // Inner screens (HomeScreen, BenchmarksScreen, SettingsScreen) own
+        // their own Scaffolds and consume status-bar insets themselves —
+        // we only want this outer Scaffold to contribute the bottom-nav
+        // height. Setting contentWindowInsets to zero prevents double
+        // status-bar padding.
+        contentWindowInsets = WindowInsets(0),
+        bottomBar = {
+            if (showBottomBar) {
+                BottomNavBar(navController = navController, currentRoute = currentRoute)
+            }
+        },
+    ) { padding ->
+        NavHost(
+            navController = navController,
+            startDestination = Routes.HOME,
+        ) {
+            composable(Routes.HOME) {
+                val viewModel: HomeViewModel = hiltViewModel()
+                val state by viewModel.state.collectAsState()
+                LaunchedEffect(Unit) { viewModel.refresh() }
+                HomeScreen(
+                    state = state,
+                    onStartSession = { navController.navigate(Routes.SESSION_GRAPH) },
+                    onOpenBenchmarks = {
+                        navController.navigateToTab(Routes.BENCHMARKS_GRAPH)
+                    },
+                    contentPadding = padding,
+                )
+            }
+            sessionGraph(navController)
+            benchmarksGraph(navController, padding)
+            settingsGraph(navController, padding)
+        }
+    }
+}
+
+@Composable
+private fun BottomNavBar(navController: NavHostController, currentRoute: String?) {
+    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+        BOTTOM_NAV_TABS.forEach { tab ->
+            val selected = currentRoute.belongsToTab(tab.route)
+            NavigationBarItem(
+                selected = selected,
+                onClick = { navController.navigateToTab(tab.route) },
+                icon = { Icon(tab.icon, contentDescription = tab.label) },
+                label = { Text(tab.label) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                    indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                ),
             )
         }
-        sessionGraph(navController)
-        benchmarksGraph(navController)
+    }
+}
+
+/**
+ * Maps a destination route back to one of the three top-level tab roots.
+ * `BENCHMARKS_LIST` and `BENCHMARK_HISTORY` both belong to the Benchmarks
+ * tab; `SESSION_HISTORY` belongs to the Settings tab.
+ */
+private fun String?.belongsToTab(tabRoute: String): Boolean = when (tabRoute) {
+    Routes.HOME -> this == Routes.HOME
+    Routes.BENCHMARKS_GRAPH -> this == Routes.BENCHMARKS_LIST || this == Routes.BENCHMARK_HISTORY
+    Routes.SETTINGS -> this == Routes.SETTINGS || this == Routes.SESSION_HISTORY
+    else -> false
+}
+
+/**
+ * Standard tab-style navigation: pop back to the graph's start destination,
+ * single-top to avoid stacking, and restore prior state of the tab if any.
+ */
+private fun NavHostController.navigateToTab(route: String) {
+    navigate(route) {
+        popUpTo(graph.findStartDestination().id) {
+            saveState = true
+        }
+        launchSingleTop = true
+        restoreState = true
     }
 }
 
@@ -135,22 +251,24 @@ private fun sessionViewModel(navController: NavHostController): SessionViewModel
 }
 
 /**
- * The benchmarks leg — list + per-benchmark history — shares one
- * [BenchmarksViewModel] so the log dialog state and the freshly-saved logs
- * are consistent across the two destinations.
+ * Benchmarks tab — list + per-benchmark history — sharing one
+ * [BenchmarksViewModel] so the log dialog state stays consistent across
+ * the two destinations.
  */
 private fun androidx.navigation.NavGraphBuilder.benchmarksGraph(
     navController: NavHostController,
+    contentPadding: PaddingValues,
 ) {
     navigation(startDestination = Routes.BENCHMARKS_LIST, route = Routes.BENCHMARKS_GRAPH) {
         composable(Routes.BENCHMARKS_LIST) {
             val viewModel = benchmarksViewModel(navController)
             BenchmarksScreen(
                 viewModel = viewModel,
-                onBack = { navController.popBackStack(Routes.HOME, inclusive = false) },
+                onBack = { navController.navigateToTab(Routes.HOME) },
                 onOpenHistory = { benchmark ->
                     navController.navigate(Routes.benchmarkHistory(benchmark.id))
                 },
+                contentPadding = contentPadding,
             )
         }
         composable(
@@ -165,6 +283,7 @@ private fun androidx.navigation.NavGraphBuilder.benchmarksGraph(
                 viewModel = viewModel,
                 benchmarkId = benchmarkId,
                 onBack = { navController.popBackStack() },
+                contentPadding = contentPadding,
             )
         }
     }
@@ -177,4 +296,23 @@ private fun benchmarksViewModel(navController: NavHostController): BenchmarksVie
         navController.getBackStackEntry(Routes.BENCHMARKS_GRAPH)
     }
     return hiltViewModel(parentEntry)
+}
+
+/**
+ * Settings tab + child routes (currently just session history). The history
+ * detail is its own top-level destination so the bottom bar can hide on it.
+ */
+private fun androidx.navigation.NavGraphBuilder.settingsGraph(
+    navController: NavHostController,
+    contentPadding: PaddingValues,
+) {
+    composable(Routes.SETTINGS) {
+        SettingsScreen(
+            onOpenSessionHistory = { navController.navigate(Routes.SESSION_HISTORY) },
+            contentPadding = contentPadding,
+        )
+    }
+    composable(Routes.SESSION_HISTORY) {
+        SessionHistoryScreen(onBack = { navController.popBackStack() })
+    }
 }
