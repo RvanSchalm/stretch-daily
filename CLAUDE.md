@@ -90,8 +90,10 @@ areas where the user's monthly benchmarks indicate the most stiffness.
     — empty → Empty and non-empty → Loaded transitions via a
     `MutableStateFlow` fake of `observeAllSessions`.
 
-Phase 5 has not yet been compiled — Ramon will run Build → Make Project
-in Android Studio to verify. Gradle CLI is still blocked on this machine
+Phase 5 was compiled and verified by Ramon via Android Studio
+(Build → Make Project) on 2026-04-08 — dashboard renders, bottom nav
+switches tabs cleanly, immersive routes hide the bar, and all new
+JVM unit tests pass. Gradle CLI remains blocked on this machine
 (see Known issues — unchanged from Phase 2).
 
 **Next up**: Phase 6 — Progress Tab (`feature/progress`)
