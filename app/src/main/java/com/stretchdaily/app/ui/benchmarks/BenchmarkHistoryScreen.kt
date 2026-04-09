@@ -141,21 +141,6 @@ private fun HistoryList(
     onEdit: (BenchmarkLog) -> Unit,
     onDelete: (BenchmarkLog) -> Unit,
 ) {
-    if (logs.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "No logs yet",
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-            )
-        }
-        return
-    }
-
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -168,13 +153,29 @@ private fun HistoryList(
         ),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        items(logs, key = { it.id }) { log ->
-            HistoryRow(
-                benchmark = benchmark,
-                log = log,
-                onEdit = { onEdit(log) },
-                onDelete = { onDelete(log) },
-            )
+        item(key = "chart") {
+            BenchmarkProgressChart(logs = logs)
+        }
+        if (logs.isEmpty()) {
+            item(key = "empty-hint") {
+                Text(
+                    text = "No logs yet — open this benchmark from the list to add one.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                )
+            }
+        } else {
+            items(logs, key = { it.id }) { log ->
+                HistoryRow(
+                    benchmark = benchmark,
+                    log = log,
+                    onEdit = { onEdit(log) },
+                    onDelete = { onDelete(log) },
+                )
+            }
         }
     }
 }
