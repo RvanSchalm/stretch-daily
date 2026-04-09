@@ -22,86 +22,71 @@ areas where the user's monthly benchmarks indicate the most stiffness.
 
 ## 2. Current state
 
-**Last updated**: 2026-04-08 (end of Phase 5 session)
-**Active branch**: `feature/dashboard` (PR target is `development`)
+**Last updated**: 2026-04-09 (end of Phase 6 session)
+**Active branch**: `feature/progress` (PR target is `development`)
 
-**Just completed**: Phase 5 — Dashboard & Bottom Navigation
-- `data/SessionRepository.kt` — added dashboard helpers:
-  `totalSessions()`, `lastCompletedAt()`, `sessionsThisWeek()` and
-  `observeAllSessions()` (Flow). The trailing-window math lives as an
-  `internal` companion function `countSessionsInLastDays(timestamps,
-  now, days, zoneId)` so it stays unit-testable without Room — same
-  pattern as `computeStreak`.
-- `ui/home/HomeViewModel.kt` — completely rewritten. Single
-  `refresh()` call fans out to: `BenchmarkRepository.isBenchmarksDue`,
-  `SessionRepository.currentStreakDays / totalSessions /
-  sessionsThisWeek / lastCompletedAt`, plus `getAllBenchmarks` +
-  `getLatestLogs` fed into the engine's `CategoryWeightCalculator` to
-  produce one `CategoryHeatmapRow` per `Category` enum entry. The
-  fractional category weight is snapped to its closest
-  `FlexibilityTier` via `tierFromWeight()` (also `internal` for tests),
-  and `STIFF` / `BELOW_AVERAGE` rows expose `isStiff = true` so the
-  view can light them up in orange.
-- `ui/home/HomeScreen.kt` — replaced the placeholder with the real
-  dashboard. Header (last-session relative label), optional
-  benchmarks-due banner (now wired to navigate the bottom nav to the
-  Benchmarks tab), three KPI cards (streak / this week / total), the
-  category heatmap with horizontal weight bars normalized against
-  STIFF (3.0), and the primary "Start session" CTA. Empty heatmap
-  state shows an explanatory hint instead of seven AVERAGE bars.
-- `ui/session/SessionHistoryScreen.kt` +
-  `ui/session/SessionHistoryViewModel.kt` — new read-only history
-  reachable from Settings. The VM exposes a sealed
-  `SessionHistoryUiState` (`Loading | Empty | Loaded`) backed by
-  `repository.observeAllSessions()` via `stateIn(WhileSubscribed)`.
-  Each row shows the formatted date, exercise count, and duration.
-- `ui/settings/SettingsScreen.kt` — Phase 5 placeholder so the third
-  bottom-nav tab has a real destination. One live row (Session
-  history) plus three "Coming soon" rows for Phase 7 (audio cues,
-  export/import, delete all data).
-- `ui/navigation/StretchDailyNavHost.kt` — wrapped the `NavHost` in a
-  top-level `Scaffold` that owns a `NavigationBar` (Home / Benchmarks
-  / Settings). The bar hides on the session flow + the session
-  history detail so those stay immersive (`BOTTOM_NAV_ROUTES` set
-  controls visibility). Tab clicks use the standard saveState +
-  restoreState + popUpTo(start) pattern. The parent Scaffold sets
-  `contentWindowInsets = WindowInsets(0)` so the inner screen
-  Scaffolds keep handling status-bar insets the way they did before
-  — only the bottom-bar height bubbles down via the new
-  `contentPadding` parameter that `HomeScreen`, `BenchmarksScreen`,
-  `BenchmarkHistoryScreen`, and `SettingsScreen` all opt in to.
-- `BenchmarksScreen.kt` + `BenchmarkHistoryScreen.kt` — accept a
-  `contentPadding` parameter and pass its bottom inset into their
-  `LazyColumn` `contentPadding` so the last card isn't covered by
-  the nav bar.
-- JVM unit tests:
-  - `app/src/test/java/.../data/SessionRepositoryWindowTest.kt` — 6
-    cases for `countSessionsInLastDays`: empty / today / full
-    trailing 7-day / 8-days-ago cutoff / multiple sessions same day /
-    future timestamp excluded.
-  - `app/src/test/java/.../ui/home/HomeViewModelTest.kt` — 6 cases
-    with mockk + `UnconfinedTestDispatcher` and a real
-    `CategoryWeightCalculator`. Covers loaded state shape,
-    empty-log heatmap defaulting to AVERAGE, a stiff log lighting
-    up its category, fractional-weight snap to BELOW_AVERAGE,
-    `tierFromWeight()` edges, and init triggering an immediate
-    refresh.
-  - `app/src/test/java/.../ui/session/SessionHistoryViewModelTest.kt`
-    — empty → Empty and non-empty → Loaded transitions via a
-    `MutableStateFlow` fake of `observeAllSessions`.
+**Just completed**: Phase 6 — Benchmark progress chart
+- `core/benchmark/BenchmarkProgressBuilder.kt` — pure-Kotlin helper that
+  turns a list of `BenchmarkLog`s into a `ProgressSeries` of
+  `ProgressPoint`s with normalized chart coordinates (`xRatio`,
+  `yRatio` in `0..1`). Lives next to `TierResolver` so it can be unit
+  tested on the JVM. Key choices:
+  - Empty input → empty series. Single point → pinned to
+    `xRatio = 0.5f` so it's centered horizontally regardless of chart
+    width.
+  - Multi-point: X is interpolated linearly between the oldest and
+    newest log; the time span is `coerceAtLeast(1L)` so simultaneous
+    timestamps don't divide by zero (both points just collapse to
+    `xRatio = 0`).
+  - Y axis is the resolved `FlexibilityTier`, not the raw numeric
+    value, so the chart is uniform across the 9 numeric and 1
+    categorical benchmarks. `tierToY()` places `VERY_FLEXIBLE` at the
+    top (`0.1`) and `STIFF` at the bottom (`0.9`), centered on five
+    evenly spaced bands.
+  - All types are `internal` to the module — only the
+    `BenchmarkProgressChart` composable consumes them.
+- `ui/benchmarks/BenchmarkProgressChart.kt` — new Compose Canvas chart.
+  Layout is a Card with the title "Tier progression", a `Row` whose
+  left gutter holds five tier labels (a `Column` with each label in a
+  `Box(Modifier.weight(1f))` so the labels exactly line up with the
+  band centers), and a `Canvas` taking the rest of the width. The
+  canvas draws five dashed grid lines (one per band), the polyline
+  for ≥2 points, and orange ring + background-fill dot markers so
+  points stay visible when they sit on top of a grid line. A footer
+  row shows the first/last log dates, or a "Log this benchmark to
+  start tracking progress" hint when there are no points, or "First
+  log on …" for the single-point case.
+- `ui/benchmarks/BenchmarkHistoryScreen.kt` — `HistoryList` is now a
+  single `LazyColumn` whose first item is the chart (`item(key =
+  "chart")`). The chart renders for both empty and non-empty history;
+  the empty branch follows the chart with an inline hint replacing
+  the old centered placeholder. Non-empty history still renders the
+  per-log rows below the chart.
+- JVM unit tests: `app/src/test/java/.../core/benchmark/BenchmarkProgressBuilderTest.kt`
+  — 6 cases covering empty input → empty series, single-point
+  centering, multi-point linear spacing, unsorted input being sorted
+  oldest-first, the `tierToY` mapping (VERY_FLEXIBLE = 0.1, AVERAGE =
+  0.5, STIFF = 0.9), and the simultaneous-timestamp edge case.
 
-Phase 5 was compiled and verified by Ramon via Android Studio
-(Build → Make Project) on 2026-04-08 — dashboard renders, bottom nav
-switches tabs cleanly, immersive routes hide the bar, and all new
-JVM unit tests pass. Gradle CLI remains blocked on this machine
-(see Known issues — unchanged from Phase 2).
+**Departures from the original plan**: the plan called for a separate
+Progress tab using Vico. I went with a hand-rolled Canvas chart
+embedded in the existing per-benchmark history screen instead. Why:
+(1) the user already navigates to history from the benchmarks list via
+the History icon button, so no new tab/route is needed; (2) the chart
+sits next to the underlying data points, which is the right place for
+context; (3) a five-band line chart is simple enough that the Vico
+dependency wasn't paying for itself. If we ever want an
+all-benchmarks-at-a-glance view, it can be added later as a Settings
+or Home affordance — the builder is already chart-library-agnostic.
 
-**Next up**: Phase 6 — Progress Tab (`feature/progress`)
-1. Per-benchmark line charts of tier progression over time using the
-   Vico charting library (Compose-native).
-2. Surface the progress UI somewhere — likely a fourth bottom-nav
-   tab or a Progress link from Settings; decide during the phase.
-3. Edge cases: no data, single data point, very long histories.
+**Next up**: Phase 7 — Settings & polish (`feature/settings-polish`)
+1. Wire the three "Coming soon" Settings rows: audio toggle backed by
+   `DataStore` + `SoundPool` placeholder chimes, JSON
+   export/import via `kotlinx.serialization` over all tables, and
+   "Delete all data" with a confirmation dialog.
+2. General polish — loading states, error handling, accessibility
+   (content descriptions, min touch targets), placeholder drawables
+   for missing exercise WebPs.
 
 **Known issues**:
 - **Gradle CLI build blocked on this Windows machine — no JDK-side fix
@@ -216,6 +201,14 @@ JVM unit tests pass. Gradle CLI remains blocked on this machine
   are ASCENDING (higher = more flexible), four are DESCENDING (lower =
   more flexible — Apley, Butterfly, Sit and Reach, Thomas), and the one
   categorical benchmark (ATG Split Squat) is tier-picked directly.
+- **Progress chart**: `BenchmarkProgressBuilder` (pure Kotlin, sibling
+  to `TierResolver`) maps `BenchmarkLog`s to a `ProgressSeries` of
+  normalized `(xRatio, yRatio)` points keyed off the resolved tier.
+  `BenchmarkProgressChart` (Compose Canvas) consumes that series and
+  draws the five tier bands + polyline + dot markers, sized via
+  `Column` weights so the left-gutter labels line up with the band
+  centers. The chart is embedded as the first item of
+  `BenchmarkHistoryScreen`'s LazyColumn — no separate Progress tab.
 
 ---
 
@@ -263,6 +256,9 @@ app/src/main/java/com/stretchdaily/app/
 │   │   ├── SessionBuilder.kt       # weighted random + 120s cap
 │   │   └── model/
 │   │       └── SessionPlan.kt      # SessionPlan + PlannedExercise
+│   ├── benchmark/
+│   │   ├── TierResolver.kt         # numeric reading -> FlexibilityTier
+│   │   └── BenchmarkProgressBuilder.kt   # logs -> normalized chart series
 │   ├── util/
 │   │   └── Clock.kt                # fun interface { now(): Long }
 │   └── di/
@@ -282,7 +278,8 @@ app/src/main/java/com/stretchdaily/app/
     │   ├── BenchmarksUiState.kt
     │   ├── BenchmarksViewModel.kt
     │   ├── BenchmarksScreen.kt
-    │   ├── BenchmarkHistoryScreen.kt
+    │   ├── BenchmarkHistoryScreen.kt   # hosts the progress chart
+    │   ├── BenchmarkProgressChart.kt   # Canvas line chart over tier bands
     │   └── LogBenchmarkDialog.kt
     ├── session/
     │   ├── SessionUiState.kt
@@ -301,7 +298,8 @@ app/src/test/java/com/stretchdaily/app/
 │   ├── SelectionShieldTest.kt
 │   └── SessionBuilderTest.kt       # 5-8 in 600-900s, statistical bias check
 ├── core/benchmark/
-│   └── TierResolverTest.kt
+│   ├── TierResolverTest.kt
+│   └── BenchmarkProgressBuilderTest.kt   # chart series math
 ├── data/
 │   ├── BenchmarkRepositoryDueTest.kt
 │   ├── SessionRepositoryStreakTest.kt   # streak math: empty/today/gap/grace
