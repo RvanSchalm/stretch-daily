@@ -30,4 +30,25 @@ interface SessionDao {
 
     @Insert
     suspend fun insertExercises(exercises: List<SessionExercise>)
+
+    /** Read-side helpers used by the data exporter. */
+    @Query("SELECT * FROM session_records ORDER BY id")
+    suspend fun getAllRecords(): List<SessionRecord>
+
+    @Query("SELECT * FROM session_exercises ORDER BY id")
+    suspend fun getAllSessionExercises(): List<SessionExercise>
+
+    /** Bulk-insert helpers used by the data importer. */
+    @Insert
+    suspend fun insertAllRecords(records: List<SessionRecord>)
+
+    /**
+     * Cascade-deletes session_exercises via the FK on session_records.
+     * "Delete all data" calls this for both tables.
+     */
+    @Query("DELETE FROM session_records")
+    suspend fun deleteAllRecords()
+
+    @Query("DELETE FROM session_exercises")
+    suspend fun deleteAllSessionExercises()
 }

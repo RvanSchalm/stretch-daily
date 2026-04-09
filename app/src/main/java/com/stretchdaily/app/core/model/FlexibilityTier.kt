@@ -1,5 +1,7 @@
 package com.stretchdaily.app.core.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * Five-level rating used by every benchmark.
  *
@@ -8,6 +10,7 @@ package com.stretchdaily.app.core.model
  * more often. Numbers are deliberately spaced to make weak areas dominate
  * without completely starving healthy ones.
  */
+@Serializable
 enum class FlexibilityTier(val displayName: String, val weight: Double) {
     STIFF("Stiff", 3.0),
     BELOW_AVERAGE("Below Average", 2.5),

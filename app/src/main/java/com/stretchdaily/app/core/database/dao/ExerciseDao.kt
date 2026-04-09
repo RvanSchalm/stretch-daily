@@ -36,4 +36,8 @@ interface ExerciseDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(exercises: List<Exercise>)
+
+    /** Resets every exercise's `lastPerformed`. Used by "delete all data". */
+    @Query("UPDATE exercises SET lastPerformed = NULL")
+    suspend fun resetAllLastPerformed()
 }

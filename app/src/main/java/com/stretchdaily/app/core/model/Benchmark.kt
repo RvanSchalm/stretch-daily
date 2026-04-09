@@ -2,6 +2,7 @@ package com.stretchdaily.app.core.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * A measurable mobility test (e.g. Sit and Reach, Knee-to-Wall) used to assess
@@ -15,6 +16,7 @@ import androidx.room.PrimaryKey
  * description shown next to each tier button.
  */
 @Entity(tableName = "benchmarks")
+@Serializable
 data class Benchmark(
     @PrimaryKey val id: String,
     val name: String,

@@ -39,9 +39,19 @@ interface BenchmarkLogDao {
     @Insert
     suspend fun insert(log: BenchmarkLog): Long
 
+    @Insert
+    suspend fun insertAll(logs: List<BenchmarkLog>)
+
     @Update
     suspend fun update(log: BenchmarkLog)
 
     @Query("DELETE FROM benchmark_logs WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM benchmark_logs")
+    suspend fun deleteAll()
+
+    /** Read-side helper used by the data exporter. */
+    @Query("SELECT * FROM benchmark_logs ORDER BY id")
+    suspend fun getAll(): List<BenchmarkLog>
 }
