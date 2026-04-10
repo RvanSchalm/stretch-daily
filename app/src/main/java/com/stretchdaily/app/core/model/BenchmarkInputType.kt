@@ -1,5 +1,7 @@
 package com.stretchdaily.app.core.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * How the user enters their result for a benchmark.
  *
@@ -8,6 +10,7 @@ package com.stretchdaily.app.core.model
  * - [CATEGORICAL]: user picks the tier directly from qualitative descriptions
  *   (currently only the ATG Split Squat).
  */
+@Serializable
 enum class BenchmarkInputType {
     NUMERIC,
     CATEGORICAL

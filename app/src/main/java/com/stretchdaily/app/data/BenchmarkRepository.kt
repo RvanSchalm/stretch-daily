@@ -37,6 +37,17 @@ class BenchmarkRepository @Inject constructor(
     suspend fun getLatestLogs(): List<BenchmarkLog> =
         benchmarkLogDao.getLatestPerBenchmark()
 
+    /**
+     * Reactive views of the catalog and the latest log per benchmark. The
+     * Benchmarks tab subscribes to both so it stays in sync with database
+     * mutations performed elsewhere — including the Settings "Delete all
+     * data" action and the future Import flow.
+     */
+    fun observeAllBenchmarks(): Flow<List<Benchmark>> = benchmarkDao.observeAll()
+
+    fun observeLatestLogs(): Flow<List<BenchmarkLog>> =
+        benchmarkLogDao.observeLatestPerBenchmark()
+
     fun observeLogsFor(benchmarkId: String): Flow<List<BenchmarkLog>> =
         benchmarkLogDao.observeForBenchmark(benchmarkId)
 

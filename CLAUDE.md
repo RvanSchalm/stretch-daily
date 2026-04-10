@@ -22,71 +22,108 @@ areas where the user's monthly benchmarks indicate the most stiffness.
 
 ## 2. Current state
 
-**Last updated**: 2026-04-09 (end of Phase 6 session)
-**Active branch**: `feature/progress` (PR target is `development`)
+**Last updated**: 2026-04-09 (end of Phase 7 session)
+**Active branch**: `feature/settings-polish` (PR target is `development`)
 
-**Just completed**: Phase 6 — Benchmark progress chart
-- `core/benchmark/BenchmarkProgressBuilder.kt` — pure-Kotlin helper that
-  turns a list of `BenchmarkLog`s into a `ProgressSeries` of
-  `ProgressPoint`s with normalized chart coordinates (`xRatio`,
-  `yRatio` in `0..1`). Lives next to `TierResolver` so it can be unit
-  tested on the JVM. Key choices:
-  - Empty input → empty series. Single point → pinned to
-    `xRatio = 0.5f` so it's centered horizontally regardless of chart
-    width.
-  - Multi-point: X is interpolated linearly between the oldest and
-    newest log; the time span is `coerceAtLeast(1L)` so simultaneous
-    timestamps don't divide by zero (both points just collapse to
-    `xRatio = 0`).
-  - Y axis is the resolved `FlexibilityTier`, not the raw numeric
-    value, so the chart is uniform across the 9 numeric and 1
-    categorical benchmarks. `tierToY()` places `VERY_FLEXIBLE` at the
-    top (`0.1`) and `STIFF` at the bottom (`0.9`), centered on five
-    evenly spaced bands.
-  - All types are `internal` to the module — only the
-    `BenchmarkProgressChart` composable consumes them.
-- `ui/benchmarks/BenchmarkProgressChart.kt` — new Compose Canvas chart.
-  Layout is a Card with the title "Tier progression", a `Row` whose
-  left gutter holds five tier labels (a `Column` with each label in a
-  `Box(Modifier.weight(1f))` so the labels exactly line up with the
-  band centers), and a `Canvas` taking the rest of the width. The
-  canvas draws five dashed grid lines (one per band), the polyline
-  for ≥2 points, and orange ring + background-fill dot markers so
-  points stay visible when they sit on top of a grid line. A footer
-  row shows the first/last log dates, or a "Log this benchmark to
-  start tracking progress" hint when there are no points, or "First
-  log on …" for the single-point case.
-- `ui/benchmarks/BenchmarkHistoryScreen.kt` — `HistoryList` is now a
-  single `LazyColumn` whose first item is the chart (`item(key =
-  "chart")`). The chart renders for both empty and non-empty history;
-  the empty branch follows the chart with an inline hint replacing
-  the old centered placeholder. Non-empty history still renders the
-  per-log rows below the chart.
-- JVM unit tests: `app/src/test/java/.../core/benchmark/BenchmarkProgressBuilderTest.kt`
-  — 6 cases covering empty input → empty series, single-point
-  centering, multi-point linear spacing, unsorted input being sorted
-  oldest-first, the `tierToY` mapping (VERY_FLEXIBLE = 0.1, AVERAGE =
-  0.5, STIFF = 0.9), and the simultaneous-timestamp edge case.
+**Just completed**: Phase 7 — Settings: data port, audio toggle, delete
+- `core/datastore/SettingsDataStore.kt` — Singleton wrapper around a
+  Preferences `DataStore` named `stretch_daily_settings`. Currently
+  exposes a single `audioCuesEnabled: Flow<Boolean>` (defaulting
+  `true`) and a `setAudioCuesEnabled` writer. Constructor takes
+  `@ApplicationContext` because Preferences DataStore is a
+  context-extension property; that context is the Application, so it's
+  safe to hold in a `@Singleton`.
+- All Room entities (`Exercise`, `Benchmark`, `BenchmarkLog`,
+  `SessionRecord`, `SessionExercise`) and their value enums
+  (`Category`, `FlexibilityTier`, `BenchmarkInputType`) gained
+  `@Serializable` annotations. Room's `@Entity` and
+  `kotlinx.serialization`'s `@Serializable` coexist cleanly — no DTOs
+  needed. The flat-dump JSON schema is the table layout itself, which
+  keeps the export trivial.
+- `data/export/ExportPayload.kt` — versioned wrapper holding all five
+  table lists plus an `exportedAt` timestamp. `version = 1` is the
+  current schema; `importFrom` rejects anything else with
+  `IllegalArgumentException` so future schema bumps fail loudly.
+- `data/DataPortRepository.kt` — `@Singleton` that owns the three
+  Settings actions:
+  - `exportTo(OutputStream)` writes the snapshot via
+    `Json.encodeToStream` (`@OptIn(ExperimentalSerializationApi)`).
+    The Json instance has `prettyPrint = true`, `encodeDefaults = true`,
+    `ignoreUnknownKeys = true`.
+  - `importFrom(InputStream)` decodes, validates the version, then
+    `replaceAll(payload)` clears children before parents
+    (session_exercises → session_records → benchmark_logs), REPLACE-
+    inserts the catalog (benchmarks + exercises), then re-inserts user
+    rows in dependency order. Schema-aware order is encapsulated here
+    so the ViewModel never has to know about FK ordering.
+  - `deleteAll()` wipes user-mutable tables in the same FK order,
+    resets every exercise's `lastPerformed`, then re-seeds the catalog
+    from `DatabaseSeeder` so the app stays fully usable immediately
+    after a wipe (no empty exercise list, no missing benchmarks).
+- DAO additions: `ExerciseDao.resetAllLastPerformed()`,
+  `BenchmarkLogDao.insertAll/deleteAll/getAll()`, and `SessionDao`
+  read/write helpers (`getAllRecords`, `getAllSessionExercises`,
+  `insertAllRecords`, `deleteAllRecords`,
+  `deleteAllSessionExercises`). These exist purely to back the export/
+  import/delete pipeline and are otherwise unused.
+- `ui/settings/SettingsViewModel.kt` — combines DataStore, the data
+  port, and a small `SettingsStatus` sealed-interface state machine
+  (`Idle | Working(msg) | Success(msg) | Error(msg)`). Audio cues
+  preference is exposed as a `StateFlow<Boolean>` via
+  `stateIn(WhileSubscribed(5_000), initialValue = true)`. The three
+  data-port actions are `viewModelScope.launch` blocks that flip
+  status to `Working`, run the repository call, and set
+  `Success/Error` based on the outcome. `consumeStatus()` is the
+  one-shot reset the screen calls after surfacing a snackbar so the
+  status doesn't replay across recomposition. The screen passes URIs
+  in (no streams across the boundary); the ViewModel uses the injected
+  `@ApplicationContext` to open input/output streams from those URIs.
+- `ui/settings/SettingsScreen.kt` — full rewrite. Uses
+  `rememberLauncherForActivityResult` with
+  `ActivityResultContracts.CreateDocument("application/json")` for
+  export and `ActivityResultContracts.OpenDocument()` for import,
+  routing the resulting URIs to the ViewModel. A `SnackbarHost`
+  surfaces every non-Idle status via a `LaunchedEffect(status)`. The
+  five rows are: audio cues toggle (Material3 Switch + tap-the-row
+  affordance), Session history (existing nav callback), Export, Import,
+  and Delete (which opens an `AlertDialog` with explicit copy about
+  the catalog reset). The `SettingsRow` composable now has an optional
+  `destructive: Boolean` flag that paints the title in primary orange.
+- JVM unit tests:
+  `app/src/test/java/.../data/DataPortRepositoryTest.kt` — 5 cases
+  using mockk to fake all four DAOs and a fixed `Clock`:
+  1. `snapshot()` pulls from every DAO and stamps the export time.
+  2. `exportTo()` writes JSON the repository can re-import (round-trip
+     through `ByteArrayOutputStream`/`ByteArrayInputStream` with the
+     captured DAO inserts asserted equal to the original fixtures).
+  3. `importFrom()` rejects an unsupported version with
+     `IllegalArgumentException` and performs no DAO writes.
+  4. `importFrom()` clears children before parents and reinserts in FK
+     order (`coVerifyOrder`).
+  5. `deleteAll()` deletes user tables in FK order, resets exercise
+     `lastPerformed`, and re-seeds the full
+     `DatabaseSeeder.exercises()`/`benchmarks()` lists.
 
-**Departures from the original plan**: the plan called for a separate
-Progress tab using Vico. I went with a hand-rolled Canvas chart
-embedded in the existing per-benchmark history screen instead. Why:
-(1) the user already navigates to history from the benchmarks list via
-the History icon button, so no new tab/route is needed; (2) the chart
-sits next to the underlying data points, which is the right place for
-context; (3) a five-band line chart is simple enough that the Vico
-dependency wasn't paying for itself. If we ever want an
-all-benchmarks-at-a-glance view, it can be added later as a Settings
-or Home affordance — the builder is already chart-library-agnostic.
+**Departures from the original plan**: the plan listed
+"`SoundPool` placeholder chimes" as part of Phase 7. I shipped only the
+DataStore-backed audio toggle and skipped the SoundPool wiring. Why:
+there are no audio assets in the project yet, and a SoundPool that
+plays nothing is dead code. The toggle's persistence is the part that
+needs to land first; the actual chime playback can be added in Phase 8
+alongside the placeholder audio files. The "general polish" laundry
+list (loading states, error handling, accessibility, placeholder
+drawables) is also deferred to Phase 8 — Phase 7 is intentionally
+scoped to the three concrete Settings rows the user can act on today.
 
-**Next up**: Phase 7 — Settings & polish (`feature/settings-polish`)
-1. Wire the three "Coming soon" Settings rows: audio toggle backed by
-   `DataStore` + `SoundPool` placeholder chimes, JSON
-   export/import via `kotlinx.serialization` over all tables, and
-   "Delete all data" with a confirmation dialog.
-2. General polish — loading states, error handling, accessibility
-   (content descriptions, min touch targets), placeholder drawables
-   for missing exercise WebPs.
+**Next up**: Phase 8 — Release prep (`chore/release-prep`)
+1. App icon + splash screen.
+2. Placeholder audio assets + `SoundPool` wiring gated by the
+   `audioCuesEnabled` flag from `SettingsDataStore`.
+3. Placeholder drawables for missing exercise WebPs.
+4. ProGuard/R8 rules tuned for kotlinx.serialization, Hilt, Room.
+5. Signed release AAB build.
+6. End-to-end instrumented tests for critical flows.
+7. Accessibility pass (content descriptions, min touch targets).
 
 **Known issues**:
 - **Gradle CLI build blocked on this Windows machine — no JDK-side fix
@@ -209,6 +246,21 @@ or Home affordance — the builder is already chart-library-agnostic.
   `Column` weights so the left-gutter labels line up with the band
   centers. The chart is embedded as the first item of
   `BenchmarkHistoryScreen`'s LazyColumn — no separate Progress tab.
+- **Settings + data port**: `SettingsDataStore` (Preferences DataStore
+  named `stretch_daily_settings`) holds the audio cues toggle.
+  `DataPortRepository` is the schema-aware orchestrator for
+  export/import/delete-all: it knows the FK order, snapshots all five
+  tables into a versioned `ExportPayload`, and re-seeds the catalog
+  from `DatabaseSeeder` after a wipe so the app stays usable. JSON IO
+  is `kotlinx.serialization` `encodeToStream`/`decodeFromStream` (the
+  Room entities themselves are `@Serializable` — no DTO layer).
+  `SettingsViewModel` exposes a `SettingsStatus` sealed-interface
+  state machine (Idle/Working/Success/Error) that the screen surfaces
+  via a `SnackbarHost` and consumes after each one-shot result.
+  Document picking happens in the screen via SAF
+  `ActivityResultContracts.CreateDocument`/`OpenDocument`; the
+  resulting `Uri`s are passed into the ViewModel, which uses an
+  injected `@ApplicationContext` to open the streams.
 
 ---
 
@@ -259,6 +311,8 @@ app/src/main/java/com/stretchdaily/app/
 │   ├── benchmark/
 │   │   ├── TierResolver.kt         # numeric reading -> FlexibilityTier
 │   │   └── BenchmarkProgressBuilder.kt   # logs -> normalized chart series
+│   ├── datastore/
+│   │   └── SettingsDataStore.kt    # Preferences DataStore — audio cues toggle
 │   ├── util/
 │   │   └── Clock.kt                # fun interface { now(): Long }
 │   └── di/
@@ -266,7 +320,10 @@ app/src/main/java/com/stretchdaily/app/
 │       └── EngineModule.kt         # Hilt — Clock binding
 ├── data/
 │   ├── BenchmarkRepository.kt      # benchmark CRUD + isBenchmarksDue
-│   └── SessionRepository.kt        # streak / weekly / total / lastAt + observeAllSessions
+│   ├── SessionRepository.kt        # streak / weekly / total / lastAt + observeAllSessions
+│   ├── DataPortRepository.kt       # export / import / delete-all + re-seed
+│   └── export/
+│       └── ExportPayload.kt        # @Serializable versioned snapshot of all 5 tables
 └── ui/
     ├── theme/                      # Color, Type, Theme
     ├── navigation/
@@ -290,7 +347,8 @@ app/src/main/java/com/stretchdaily/app/
     │   ├── SessionHistoryViewModel.kt   # Loading|Empty|Loaded
     │   └── SessionHistoryScreen.kt      # read-only newest-first list
     └── settings/
-        └── SettingsScreen.kt       # Phase 5 placeholder + Session history link
+        ├── SettingsScreen.kt       # Audio toggle + export/import/delete + history link
+        └── SettingsViewModel.kt    # SettingsStatus state machine + data port wiring
 
 app/src/test/java/com/stretchdaily/app/
 ├── core/engine/
@@ -303,7 +361,8 @@ app/src/test/java/com/stretchdaily/app/
 ├── data/
 │   ├── BenchmarkRepositoryDueTest.kt
 │   ├── SessionRepositoryStreakTest.kt   # streak math: empty/today/gap/grace
-│   └── SessionRepositoryWindowTest.kt   # trailing N-day count helper
+│   ├── SessionRepositoryWindowTest.kt   # trailing N-day count helper
+│   └── DataPortRepositoryTest.kt        # snapshot/round-trip/version/delete
 └── ui/
     ├── benchmarks/
     │   └── BenchmarksViewModelTest.kt

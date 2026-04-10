@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * One exercise inside a [SessionRecord]. Insertion order is preserved through
@@ -28,6 +29,7 @@ import androidx.room.PrimaryKey
     ],
     indices = [Index("sessionId"), Index("exerciseId")]
 )
+@Serializable
 data class SessionExercise(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val sessionId: Long,

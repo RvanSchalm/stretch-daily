@@ -2,6 +2,7 @@ package com.stretchdaily.app.core.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * A single mobility / tendon exercise that the engine may schedule into a
@@ -18,6 +19,7 @@ import androidx.room.PrimaryKey
  *   rotation.
  */
 @Entity(tableName = "exercises")
+@Serializable
 data class Exercise(
     @PrimaryKey val id: String,
     val name: String,
