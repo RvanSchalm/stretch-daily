@@ -2,6 +2,7 @@ package com.stretchdaily.app.ui.session
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stretchdaily.app.core.audio.SessionAudioPlayer
 import com.stretchdaily.app.core.database.dao.ExerciseDao
 import com.stretchdaily.app.core.engine.LongevityEngine
 import com.stretchdaily.app.core.engine.model.PlannedExercise
@@ -41,6 +42,7 @@ class SessionViewModel @Inject constructor(
     private val exerciseDao: ExerciseDao,
     private val repository: SessionRepository,
     private val clock: Clock,
+    private val audioPlayer: SessionAudioPlayer,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<SessionUiState>(SessionUiState.Loading)
@@ -102,6 +104,7 @@ class SessionViewModel @Inject constructor(
             totalSecondsForPhase = phaseSeconds,
             isPaused = false,
         )
+        viewModelScope.launch { audioPlayer.playStart() }
         startTimer()
     }
 
@@ -166,11 +169,13 @@ class SessionViewModel @Inject constructor(
             remainingSeconds = nextSeconds,
             totalSecondsForPhase = nextSeconds,
         )
+        viewModelScope.launch { audioPlayer.playStart() }
     }
 
     private fun finish(plan: SessionPlan) {
         timerJob?.cancel()
         viewModelScope.launch {
+            audioPlayer.playEnd()
             repository.completeSession(plan, startedAt)
             val streak = repository.currentStreakDays()
             _state.value = SessionUiState.Complete(

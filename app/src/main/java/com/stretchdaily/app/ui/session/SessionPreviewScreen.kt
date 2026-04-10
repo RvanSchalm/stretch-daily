@@ -223,7 +223,7 @@ private fun ForcedBadge() {
     ) {
         Icon(
             imageVector = Icons.Filled.Bolt,
-            contentDescription = null,
+            contentDescription = "Rotation shield",
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(12.dp),
         )

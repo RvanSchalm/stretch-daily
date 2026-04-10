@@ -22,108 +22,63 @@ areas where the user's monthly benchmarks indicate the most stiffness.
 
 ## 2. Current state
 
-**Last updated**: 2026-04-09 (end of Phase 7 session)
-**Active branch**: `feature/settings-polish` (PR target is `development`)
+**Last updated**: 2026-04-10 (end of Phase 8 session)
+**Active branch**: `chore/release-prep` (PR target is `development`)
 
-**Just completed**: Phase 7 — Settings: data port, audio toggle, delete
-- `core/datastore/SettingsDataStore.kt` — Singleton wrapper around a
-  Preferences `DataStore` named `stretch_daily_settings`. Currently
-  exposes a single `audioCuesEnabled: Flow<Boolean>` (defaulting
-  `true`) and a `setAudioCuesEnabled` writer. Constructor takes
-  `@ApplicationContext` because Preferences DataStore is a
-  context-extension property; that context is the Application, so it's
-  safe to hold in a `@Singleton`.
-- All Room entities (`Exercise`, `Benchmark`, `BenchmarkLog`,
-  `SessionRecord`, `SessionExercise`) and their value enums
-  (`Category`, `FlexibilityTier`, `BenchmarkInputType`) gained
-  `@Serializable` annotations. Room's `@Entity` and
-  `kotlinx.serialization`'s `@Serializable` coexist cleanly — no DTOs
-  needed. The flat-dump JSON schema is the table layout itself, which
-  keeps the export trivial.
-- `data/export/ExportPayload.kt` — versioned wrapper holding all five
-  table lists plus an `exportedAt` timestamp. `version = 1` is the
-  current schema; `importFrom` rejects anything else with
-  `IllegalArgumentException` so future schema bumps fail loudly.
-- `data/DataPortRepository.kt` — `@Singleton` that owns the three
-  Settings actions:
-  - `exportTo(OutputStream)` writes the snapshot via
-    `Json.encodeToStream` (`@OptIn(ExperimentalSerializationApi)`).
-    The Json instance has `prettyPrint = true`, `encodeDefaults = true`,
-    `ignoreUnknownKeys = true`.
-  - `importFrom(InputStream)` decodes, validates the version, then
-    `replaceAll(payload)` clears children before parents
-    (session_exercises → session_records → benchmark_logs), REPLACE-
-    inserts the catalog (benchmarks + exercises), then re-inserts user
-    rows in dependency order. Schema-aware order is encapsulated here
-    so the ViewModel never has to know about FK ordering.
-  - `deleteAll()` wipes user-mutable tables in the same FK order,
-    resets every exercise's `lastPerformed`, then re-seeds the catalog
-    from `DatabaseSeeder` so the app stays fully usable immediately
-    after a wipe (no empty exercise list, no missing benchmarks).
-- DAO additions: `ExerciseDao.resetAllLastPerformed()`,
-  `BenchmarkLogDao.insertAll/deleteAll/getAll()`, and `SessionDao`
-  read/write helpers (`getAllRecords`, `getAllSessionExercises`,
-  `insertAllRecords`, `deleteAllRecords`,
-  `deleteAllSessionExercises`). These exist purely to back the export/
-  import/delete pipeline and are otherwise unused.
-- `ui/settings/SettingsViewModel.kt` — combines DataStore, the data
-  port, and a small `SettingsStatus` sealed-interface state machine
-  (`Idle | Working(msg) | Success(msg) | Error(msg)`). Audio cues
-  preference is exposed as a `StateFlow<Boolean>` via
-  `stateIn(WhileSubscribed(5_000), initialValue = true)`. The three
-  data-port actions are `viewModelScope.launch` blocks that flip
-  status to `Working`, run the repository call, and set
-  `Success/Error` based on the outcome. `consumeStatus()` is the
-  one-shot reset the screen calls after surfacing a snackbar so the
-  status doesn't replay across recomposition. The screen passes URIs
-  in (no streams across the boundary); the ViewModel uses the injected
-  `@ApplicationContext` to open input/output streams from those URIs.
-- `ui/settings/SettingsScreen.kt` — full rewrite. Uses
-  `rememberLauncherForActivityResult` with
-  `ActivityResultContracts.CreateDocument("application/json")` for
-  export and `ActivityResultContracts.OpenDocument()` for import,
-  routing the resulting URIs to the ViewModel. A `SnackbarHost`
-  surfaces every non-Idle status via a `LaunchedEffect(status)`. The
-  five rows are: audio cues toggle (Material3 Switch + tap-the-row
-  affordance), Session history (existing nav callback), Export, Import,
-  and Delete (which opens an `AlertDialog` with explicit copy about
-  the catalog reset). The `SettingsRow` composable now has an optional
-  `destructive: Boolean` flag that paints the title in primary orange.
-- JVM unit tests:
-  `app/src/test/java/.../data/DataPortRepositoryTest.kt` — 5 cases
-  using mockk to fake all four DAOs and a fixed `Clock`:
-  1. `snapshot()` pulls from every DAO and stamps the export time.
-  2. `exportTo()` writes JSON the repository can re-import (round-trip
-     through `ByteArrayOutputStream`/`ByteArrayInputStream` with the
-     captured DAO inserts asserted equal to the original fixtures).
-  3. `importFrom()` rejects an unsupported version with
-     `IllegalArgumentException` and performs no DAO writes.
-  4. `importFrom()` clears children before parents and reinserts in FK
-     order (`coVerifyOrder`).
-  5. `deleteAll()` deletes user tables in FK order, resets exercise
-     `lastPerformed`, and re-seeds the full
-     `DatabaseSeeder.exercises()`/`benchmarks()` lists.
+**Just completed**: Phase 8 — Release prep
+- **Splash screen**: Wired the AndroidX SplashScreen API
+  (`core-splashscreen 1.0.1`). The activity theme starts as
+  `Theme.StretchDaily.Splash` (dark background + launcher icon), then
+  `installSplashScreen()` in `MainActivity.onCreate()` transitions to
+  the regular theme. Works on Android 12+ natively and polyfills back
+  to API 23 via the compat library.
+- **App icon**: Replaced the placeholder plus sign with a stretching
+  figure silhouette in the `#FF8C00` orange accent, drawn as a vector
+  adaptive icon foreground over the `#0D0D0D` dark background.
+- **Audio cues**: Two placeholder WAV files (`chime_start.wav`,
+  `chime_end.wav`) generated as short sine-wave tones.
+  `core/audio/SessionAudioPlayer.kt` is a `@Singleton` wrapping
+  `SoundPool` — eagerly loads both sounds, checks
+  `SettingsDataStore.audioCuesEnabled` (via `Flow.first()`) before
+  every play call. `SessionViewModel` fires `playStart()` when the
+  session begins and on every exercise transition, `playEnd()` when
+  the session finishes. The existing audio toggle in Settings now
+  controls real playback.
+- **R8 minification**: Enabled `isMinifyEnabled = true` and
+  `isShrinkResources = true` on the release build type. ProGuard keep
+  rules added for kotlinx.serialization (`$$serializer`, `Companion`,
+  `serializer()`), Room entities, Hilt/Dagger generated components,
+  and Compose lambdas.
+- **Release signing**: `app/build.gradle.kts` reads a
+  `keystore.properties` file (gitignored) when present and configures
+  `signingConfigs.release` from it. Missing file = no signing config =
+  debug signing only, so debug builds and CI are unaffected. To sign a
+  release, create `keystore.properties` at the project root with
+  `storeFile`, `storePassword`, `keyAlias`, `keyPassword`.
+- **Accessibility**: Replaced every `contentDescription = null` on
+  interactive `Icon` composables across all screens with meaningful
+  labels: Pause/Resume, Skip, Swap exercise, Benchmarks due,
+  Session complete, Rotation shield, Open (settings row arrow).
+- **Bug fix (Phase 7 follow-up)**: Made the benchmarks tab reactive
+  to database wipes. Added `observeLatestPerBenchmark()` Flow query
+  to `BenchmarkLogDao`, exposed reactive methods from
+  `BenchmarkRepository`, refactored `BenchmarksViewModel` from
+  one-shot `refresh()` to `combine(...).stateIn(Eagerly)`. New test
+  `state recomputes when latest logs flow emits a new value` directly
+  covers the delete-all scenario.
 
-**Departures from the original plan**: the plan listed
-"`SoundPool` placeholder chimes" as part of Phase 7. I shipped only the
-DataStore-backed audio toggle and skipped the SoundPool wiring. Why:
-there are no audio assets in the project yet, and a SoundPool that
-plays nothing is dead code. The toggle's persistence is the part that
-needs to land first; the actual chime playback can be added in Phase 8
-alongside the placeholder audio files. The "general polish" laundry
-list (loading states, error handling, accessibility, placeholder
-drawables) is also deferred to Phase 8 — Phase 7 is intentionally
-scoped to the three concrete Settings rows the user can act on today.
+**Deferred items**: End-to-end instrumented tests and exercise
+placeholder drawables are left for a future iteration — the app has
+no exercise images in the data model yet, and instrumented tests
+require a connected device which can't be verified in Claude Code.
 
-**Next up**: Phase 8 — Release prep (`chore/release-prep`)
-1. App icon + splash screen.
-2. Placeholder audio assets + `SoundPool` wiring gated by the
-   `audioCuesEnabled` flag from `SettingsDataStore`.
-3. Placeholder drawables for missing exercise WebPs.
-4. ProGuard/R8 rules tuned for kotlinx.serialization, Hilt, Room.
-5. Signed release AAB build.
-6. End-to-end instrumented tests for critical flows.
-7. Accessibility pass (content descriptions, min touch targets).
+**Next up**: All 8 planned phases are complete. The app is
+feature-complete for v0.1.0. Remaining work for a production release:
+1. Replace placeholder audio files with real chime samples.
+2. Add exercise illustration assets (WebP/Lottie) and wire via Coil.
+3. Create a release keystore and sign an AAB.
+4. Instrumented tests on a real device/emulator.
+5. Play Store listing and metadata.
 
 **Known issues**:
 - **Gradle CLI build blocked on this Windows machine — no JDK-side fix
@@ -208,6 +163,8 @@ scoped to the three concrete Settings rows the user can act on today.
   `hiltViewModel(parentEntry)`. The 1 Hz timer is a `delay`-based
   coroutine inside `viewModelScope`; the `tick()` function is `internal`
   so unit tests can drive it without a real dispatcher.
+  `SessionAudioPlayer` (injected) plays start/end chimes gated by the
+  audio-cues preference in DataStore.
 - **Navigation**: Compose Navigation with string routes. The
   `NavHost` lives inside an outer `Scaffold` that owns a Material3
   `NavigationBar` (Home / Benchmarks / Settings). The outer Scaffold
@@ -311,6 +268,8 @@ app/src/main/java/com/stretchdaily/app/
 │   ├── benchmark/
 │   │   ├── TierResolver.kt         # numeric reading -> FlexibilityTier
 │   │   └── BenchmarkProgressBuilder.kt   # logs -> normalized chart series
+│   ├── audio/
+│   │   └── SessionAudioPlayer.kt   # SoundPool wrapper — start/end chimes
 │   ├── datastore/
 │   │   └── SettingsDataStore.kt    # Preferences DataStore — audio cues toggle
 │   ├── util/
