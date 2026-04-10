@@ -211,7 +211,7 @@ private fun Controls(
         ) {
             Icon(
                 imageVector = if (isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
-                contentDescription = null,
+                contentDescription = if (isPaused) "Resume" else "Pause",
             )
             Spacer(Modifier.padding(end = 8.dp))
             Text(if (isPaused) "Resume" else "Pause", fontWeight = FontWeight.SemiBold)
@@ -225,7 +225,7 @@ private fun Controls(
             ),
             shape = RoundedCornerShape(12.dp),
         ) {
-            Icon(imageVector = Icons.Filled.SkipNext, contentDescription = null)
+            Icon(imageVector = Icons.Filled.SkipNext, contentDescription = "Skip")
             Spacer(Modifier.padding(end = 8.dp))
             Text("Skip", fontWeight = FontWeight.SemiBold)
         }

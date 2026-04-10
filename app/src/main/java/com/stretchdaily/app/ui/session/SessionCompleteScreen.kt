@@ -44,7 +44,7 @@ fun SessionCompleteScreen(
         Spacer(Modifier.height(32.dp))
         Icon(
             imageVector = Icons.Filled.CheckCircle,
-            contentDescription = null,
+            contentDescription = "Session complete",
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(96.dp),
         )

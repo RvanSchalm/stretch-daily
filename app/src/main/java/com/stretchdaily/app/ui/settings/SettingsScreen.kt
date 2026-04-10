@@ -241,7 +241,7 @@ private fun SettingsRow(
         }
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
+            contentDescription = "Open",
             tint = MaterialTheme.colorScheme.primary,
         )
     }

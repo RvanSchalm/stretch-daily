@@ -290,7 +290,7 @@ private fun BenchmarksDueBanner(onOpenBenchmarks: () -> Unit) {
     ) {
         Icon(
             imageVector = Icons.Filled.Warning,
-            contentDescription = null,
+            contentDescription = "Benchmarks due",
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(24.dp),
         )
