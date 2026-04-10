@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -9,7 +11,7 @@ plugins {
 
 // Load release signing properties if present (the file is gitignored).
 val keystorePropertiesFile = rootProject.file("keystore.properties")
-val keystoreProperties = java.util.Properties().apply {
+val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) {
         keystorePropertiesFile.inputStream().use { load(it) }
     }
