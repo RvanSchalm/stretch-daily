@@ -33,6 +33,22 @@ interface BenchmarkLogDao {
     )
     suspend fun getLatestPerBenchmark(): List<BenchmarkLog>
 
+    /**
+     * Reactive version of [getLatestPerBenchmark]. Used by the Benchmarks tab
+     * so the latest-value badges update immediately when logs are inserted,
+     * edited, deleted, or wiped wholesale by the Settings "Delete all data"
+     * action.
+     */
+    @Query(
+        """
+        SELECT * FROM benchmark_logs
+        WHERE id IN (
+            SELECT MAX(id) FROM benchmark_logs GROUP BY benchmarkId
+        )
+        """
+    )
+    fun observeLatestPerBenchmark(): Flow<List<BenchmarkLog>>
+
     @Query("SELECT MAX(loggedAt) FROM benchmark_logs")
     suspend fun getLastLoggedAt(): Long?
 

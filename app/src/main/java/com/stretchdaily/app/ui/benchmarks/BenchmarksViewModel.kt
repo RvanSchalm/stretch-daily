@@ -10,8 +10,12 @@ import com.stretchdaily.app.data.BenchmarkRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -20,37 +24,42 @@ import kotlinx.coroutines.launch
  * value) and the individual log dialog. The dialog state is held here too so
  * the user can tap a row, enter a value, rotate the device, and still see
  * their pending input.
+ *
+ * The list state is derived reactively from the database so it stays in sync
+ * with mutations made elsewhere — most importantly the Settings "Delete all
+ * data" action, which would otherwise leave the cards displaying stale values
+ * until the next manual refresh.
  */
 @HiltViewModel
 class BenchmarksViewModel @Inject constructor(
     private val repository: BenchmarkRepository,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow<BenchmarksUiState>(BenchmarksUiState.Loading)
-    val state: StateFlow<BenchmarksUiState> = _state.asStateFlow()
+    val state: StateFlow<BenchmarksUiState> = combine(
+        repository.observeAllBenchmarks(),
+        repository.observeLatestLogs(),
+    ) { benchmarks, latestLogs ->
+        val latestByBenchmark = latestLogs.associateBy { it.benchmarkId }
+        val rows = benchmarks.map { b ->
+            BenchmarkRow(benchmark = b, latestLog = latestByBenchmark[b.id])
+        }
+        BenchmarksUiState.Loaded(rows) as BenchmarksUiState
+    }
+        .catch { t ->
+            emit(BenchmarksUiState.Error(t.message ?: "Failed to load benchmarks"))
+        }
+        .stateIn(
+            scope = viewModelScope,
+            // Collect eagerly so re-entering the Benchmarks tab from a
+            // graph-scoped ViewModel always reflects the latest database
+            // state — most importantly after Settings → "Delete all data"
+            // wipes the logs while the user is on another tab.
+            started = SharingStarted.Eagerly,
+            initialValue = BenchmarksUiState.Loading,
+        )
 
     private val _dialog = MutableStateFlow<LogDialogState?>(null)
     val dialog: StateFlow<LogDialogState?> = _dialog.asStateFlow()
-
-    init {
-        refresh()
-    }
-
-    fun refresh() {
-        viewModelScope.launch {
-            _state.value = BenchmarksUiState.Loading
-            try {
-                val benchmarks = repository.getAllBenchmarks()
-                val latestByBenchmark = repository.getLatestLogs().associateBy { it.benchmarkId }
-                val rows = benchmarks.map { b ->
-                    BenchmarkRow(benchmark = b, latestLog = latestByBenchmark[b.id])
-                }
-                _state.value = BenchmarksUiState.Loaded(rows)
-            } catch (t: Throwable) {
-                _state.value = BenchmarksUiState.Error(t.message ?: "Failed to load benchmarks")
-            }
-        }
-    }
 
     /** Open the log dialog to create a new entry for [benchmark]. */
     fun openLogDialog(benchmark: Benchmark) {
@@ -97,7 +106,6 @@ class BenchmarksViewModel @Inject constructor(
             }
             result.onSuccess {
                 _dialog.value = null
-                refresh()
                 onSuccess()
             }.onFailure { t ->
                 _dialog.update { it?.copy(error = t.message ?: "Failed to save") }
@@ -143,7 +151,6 @@ class BenchmarksViewModel @Inject constructor(
     fun deleteLog(log: BenchmarkLog) {
         viewModelScope.launch {
             repository.deleteLog(log.id)
-            refresh()
         }
     }
 
@@ -153,4 +160,3 @@ class BenchmarksViewModel @Inject constructor(
     /** One-shot lookup of a benchmark by id — used by [BenchmarkHistoryScreen] for the title. */
     suspend fun getBenchmark(id: String): Benchmark? = repository.getBenchmark(id)
 }
-

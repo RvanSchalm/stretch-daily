@@ -9,11 +9,14 @@ import com.stretchdaily.app.data.BenchmarkRepository
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -32,6 +35,8 @@ class BenchmarksViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
     private lateinit var repository: BenchmarkRepository
+    private lateinit var benchmarksFlow: MutableStateFlow<List<Benchmark>>
+    private lateinit var latestLogsFlow: MutableStateFlow<List<BenchmarkLog>>
 
     private val numericBenchmark = Benchmark(
         id = "BM_KNEE_TO_WALL",
@@ -57,6 +62,10 @@ class BenchmarksViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         repository = mockk(relaxed = true)
+        benchmarksFlow = MutableStateFlow(emptyList())
+        latestLogsFlow = MutableStateFlow(emptyList())
+        every { repository.observeAllBenchmarks() } returns benchmarksFlow
+        every { repository.observeLatestLogs() } returns latestLogsFlow
     }
 
     @After
@@ -64,14 +73,9 @@ class BenchmarksViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private suspend fun defaultRepoStubs() {
-        coEvery { repository.getAllBenchmarks() } returns listOf(numericBenchmark, categoricalBenchmark)
-        coEvery { repository.getLatestLogs() } returns emptyList()
-    }
-
     @Test
-    fun `refresh transitions to Loaded with catalog and no logs`() = runTest {
-        defaultRepoStubs()
+    fun `state transitions to Loaded with catalog and no logs`() = runTest {
+        benchmarksFlow.value = listOf(numericBenchmark, categoricalBenchmark)
         val vm = BenchmarksViewModel(repository)
         advanceUntilIdle()
 
@@ -83,9 +87,9 @@ class BenchmarksViewModelTest {
     }
 
     @Test
-    fun `refresh pairs latest logs with benchmarks`() = runTest {
-        coEvery { repository.getAllBenchmarks() } returns listOf(numericBenchmark)
-        coEvery { repository.getLatestLogs() } returns listOf(
+    fun `state pairs latest logs with benchmarks`() = runTest {
+        benchmarksFlow.value = listOf(numericBenchmark)
+        latestLogsFlow.value = listOf(
             BenchmarkLog(
                 id = 42,
                 benchmarkId = "BM_KNEE_TO_WALL",
@@ -104,8 +108,40 @@ class BenchmarksViewModelTest {
     }
 
     @Test
+    fun `state recomputes when latest logs flow emits a new value`() = runTest {
+        // Start with one log present, then simulate a "delete all data"
+        // wipe by emitting an empty list. The card should drop its
+        // latestLog without any explicit refresh call.
+        benchmarksFlow.value = listOf(numericBenchmark)
+        latestLogsFlow.value = listOf(
+            BenchmarkLog(
+                id = 42,
+                benchmarkId = "BM_KNEE_TO_WALL",
+                rawValue = "12",
+                resolvedTier = FlexibilityTier.FLEXIBLE,
+                loggedAt = 1_700_000_000_000L,
+            )
+        )
+
+        val vm = BenchmarksViewModel(repository)
+        advanceUntilIdle()
+        assertNotNull(
+            (vm.state.value as BenchmarksUiState.Loaded).rows[0].latestLog
+        )
+
+        latestLogsFlow.value = emptyList()
+        advanceUntilIdle()
+
+        val loadedAfter = vm.state.value as BenchmarksUiState.Loaded
+        assertNull(
+            "card should drop its latest log after the flow re-emits empty",
+            loadedAfter.rows[0].latestLog,
+        )
+    }
+
+    @Test
     fun `openLogDialog seeds a fresh numeric dialog`() = runTest {
-        defaultRepoStubs()
+        benchmarksFlow.value = listOf(numericBenchmark, categoricalBenchmark)
         val vm = BenchmarksViewModel(repository)
         advanceUntilIdle()
 
@@ -119,8 +155,8 @@ class BenchmarksViewModelTest {
     }
 
     @Test
-    fun `submitDialog numeric success closes the dialog and refreshes`() = runTest {
-        defaultRepoStubs()
+    fun `submitDialog numeric success closes the dialog`() = runTest {
+        benchmarksFlow.value = listOf(numericBenchmark)
         coEvery { repository.logNumeric("BM_KNEE_TO_WALL", "12.5") } returns Result.success(1L)
 
         val vm = BenchmarksViewModel(repository)
@@ -136,7 +172,7 @@ class BenchmarksViewModelTest {
 
     @Test
     fun `submitDialog numeric failure keeps dialog open and stores error`() = runTest {
-        defaultRepoStubs()
+        benchmarksFlow.value = listOf(numericBenchmark)
         coEvery { repository.logNumeric("BM_KNEE_TO_WALL", "oops") } returns
             Result.failure(IllegalArgumentException("Not a number: oops"))
 
@@ -154,7 +190,7 @@ class BenchmarksViewModelTest {
 
     @Test
     fun `submitDialog rejects empty numeric input without hitting the repo`() = runTest {
-        defaultRepoStubs()
+        benchmarksFlow.value = listOf(numericBenchmark)
         val vm = BenchmarksViewModel(repository)
         advanceUntilIdle()
         vm.openLogDialog(numericBenchmark)
@@ -167,7 +203,7 @@ class BenchmarksViewModelTest {
 
     @Test
     fun `submitDialog categorical success calls logCategorical with selected tier`() = runTest {
-        defaultRepoStubs()
+        benchmarksFlow.value = listOf(categoricalBenchmark)
         val tierSlot = slot<FlexibilityTier>()
         coEvery {
             repository.logCategorical("BM_ATG_SPLIT_SQUAT", capture(tierSlot))
@@ -186,7 +222,7 @@ class BenchmarksViewModelTest {
 
     @Test
     fun `submitDialog rejects categorical without selection`() = runTest {
-        defaultRepoStubs()
+        benchmarksFlow.value = listOf(categoricalBenchmark)
         val vm = BenchmarksViewModel(repository)
         advanceUntilIdle()
         vm.openLogDialog(categoricalBenchmark)
@@ -198,7 +234,7 @@ class BenchmarksViewModelTest {
 
     @Test
     fun `openEditDialog pre-fills the existing raw value`() = runTest {
-        defaultRepoStubs()
+        benchmarksFlow.value = listOf(numericBenchmark)
         val vm = BenchmarksViewModel(repository)
         advanceUntilIdle()
 
@@ -219,7 +255,7 @@ class BenchmarksViewModelTest {
 
     @Test
     fun `submitDialog edit numeric calls updateLog via repository`() = runTest {
-        defaultRepoStubs()
+        benchmarksFlow.value = listOf(numericBenchmark)
         val existing = BenchmarkLog(
             id = 7,
             benchmarkId = "BM_KNEE_TO_WALL",
@@ -256,8 +292,8 @@ class BenchmarksViewModelTest {
     }
 
     @Test
-    fun `deleteLog forwards to repository and refreshes`() = runTest {
-        defaultRepoStubs()
+    fun `deleteLog forwards to repository`() = runTest {
+        benchmarksFlow.value = listOf(numericBenchmark)
         coEvery { repository.deleteLog(99) } just Runs
 
         val vm = BenchmarksViewModel(repository)
@@ -274,19 +310,19 @@ class BenchmarksViewModelTest {
         advanceUntilIdle()
 
         coVerify { repository.deleteLog(99) }
-        // refresh() is called twice total: once at init, once after delete.
-        coVerify(atLeast = 2) { repository.getAllBenchmarks() }
     }
 
     @Test
-    fun `refresh catches repository error and exposes Error state`() = runTest {
-        coEvery { repository.getAllBenchmarks() } throws IllegalStateException("boom")
+    fun `state catches upstream errors and exposes Error state`() = runTest {
+        every { repository.observeAllBenchmarks() } returns flow {
+            throw IllegalStateException("boom")
+        }
 
         val vm = BenchmarksViewModel(repository)
         advanceUntilIdle()
 
         val state = vm.state.value
-        assertTrue(state is BenchmarksUiState.Error)
+        assertTrue("expected Error, was $state", state is BenchmarksUiState.Error)
         assertEquals("boom", (state as BenchmarksUiState.Error).message)
     }
 }

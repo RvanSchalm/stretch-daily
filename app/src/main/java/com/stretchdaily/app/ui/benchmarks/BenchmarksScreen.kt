@@ -83,16 +83,10 @@ fun BenchmarksScreen(
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
             is BenchmarksUiState.Error -> CenteredBox(padding) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = snapshot.message,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedButton(onClick = viewModel::refresh) {
-                        Text("Retry")
-                    }
-                }
+                Text(
+                    text = snapshot.message,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
             }
             is BenchmarksUiState.Loaded -> BenchmarkList(
                 padding = padding,
