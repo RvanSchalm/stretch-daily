@@ -1,5 +1,6 @@
 package com.stretchdaily.app.ui.session
 
+import com.stretchdaily.app.core.audio.SessionAudioPlayer
 import com.stretchdaily.app.core.database.dao.ExerciseDao
 import com.stretchdaily.app.core.engine.LongevityEngine
 import com.stretchdaily.app.core.engine.model.PlannedExercise
@@ -33,6 +34,7 @@ class SessionViewModelTest {
     private lateinit var exerciseDao: ExerciseDao
     private lateinit var repository: SessionRepository
     private lateinit var clock: Clock
+    private lateinit var audioPlayer: SessionAudioPlayer
 
     @Before
     fun setup() {
@@ -41,6 +43,7 @@ class SessionViewModelTest {
         exerciseDao = mockk(relaxed = true)
         repository = mockk(relaxed = true)
         clock = Clock { 1_700_000_000_000L }
+        audioPlayer = mockk(relaxed = true)
     }
 
     @After
@@ -85,7 +88,7 @@ class SessionViewModelTest {
     fun `init transitions to Preview after generate succeeds`() = runTest {
         coEvery { engine.generateSession() } returns plan(planned("a"), planned("b"))
 
-        val vm = SessionViewModel(engine, exerciseDao, repository, clock)
+        val vm = SessionViewModel(engine, exerciseDao, repository, clock, audioPlayer)
         advanceUntilIdle()
 
         val state = vm.state.value
@@ -97,7 +100,7 @@ class SessionViewModelTest {
     fun `init transitions to Error when engine throws`() = runTest {
         coEvery { engine.generateSession() } throws IllegalStateException("boom")
 
-        val vm = SessionViewModel(engine, exerciseDao, repository, clock)
+        val vm = SessionViewModel(engine, exerciseDao, repository, clock, audioPlayer)
         advanceUntilIdle()
 
         val state = vm.state.value
@@ -109,7 +112,7 @@ class SessionViewModelTest {
     fun `start transitions Preview to FollowAlong with first item`() = runTest {
         coEvery { engine.generateSession() } returns plan(planned("a", seconds = 30), planned("b", seconds = 30))
 
-        val vm = SessionViewModel(engine, exerciseDao, repository, clock)
+        val vm = SessionViewModel(engine, exerciseDao, repository, clock, audioPlayer)
         advanceUntilIdle()
         vm.start()
 
@@ -128,7 +131,7 @@ class SessionViewModelTest {
             planned("a", seconds = 60, isUnilateral = true)
         )
 
-        val vm = SessionViewModel(engine, exerciseDao, repository, clock)
+        val vm = SessionViewModel(engine, exerciseDao, repository, clock, audioPlayer)
         advanceUntilIdle()
         vm.start()
 
@@ -142,7 +145,7 @@ class SessionViewModelTest {
     fun `tick decrements remainingSeconds`() = runTest {
         coEvery { engine.generateSession() } returns plan(planned("a", seconds = 5))
 
-        val vm = SessionViewModel(engine, exerciseDao, repository, clock)
+        val vm = SessionViewModel(engine, exerciseDao, repository, clock, audioPlayer)
         advanceUntilIdle()
         vm.start()
 
@@ -156,7 +159,7 @@ class SessionViewModelTest {
     fun `paused tick is a no-op`() = runTest {
         coEvery { engine.generateSession() } returns plan(planned("a", seconds = 5))
 
-        val vm = SessionViewModel(engine, exerciseDao, repository, clock)
+        val vm = SessionViewModel(engine, exerciseDao, repository, clock, audioPlayer)
         advanceUntilIdle()
         vm.start()
         vm.togglePause()
@@ -177,7 +180,7 @@ class SessionViewModelTest {
             planned("b", seconds = 30),
         )
 
-        val vm = SessionViewModel(engine, exerciseDao, repository, clock)
+        val vm = SessionViewModel(engine, exerciseDao, repository, clock, audioPlayer)
         advanceUntilIdle()
         vm.start()
 
@@ -195,7 +198,7 @@ class SessionViewModelTest {
             planned("b", seconds = 10),
         )
 
-        val vm = SessionViewModel(engine, exerciseDao, repository, clock)
+        val vm = SessionViewModel(engine, exerciseDao, repository, clock, audioPlayer)
         advanceUntilIdle()
         vm.start()
 
@@ -219,7 +222,7 @@ class SessionViewModelTest {
         coEvery { repository.completeSession(any(), any()) } returns 1L
         coEvery { repository.currentStreakDays() } returns 7
 
-        val vm = SessionViewModel(engine, exerciseDao, repository, clock)
+        val vm = SessionViewModel(engine, exerciseDao, repository, clock, audioPlayer)
         advanceUntilIdle()
         vm.start()
         vm.tick() // 1 -> 0 -> finish
@@ -241,7 +244,7 @@ class SessionViewModelTest {
             planned("b", seconds = 60),
         )
 
-        val vm = SessionViewModel(engine, exerciseDao, repository, clock)
+        val vm = SessionViewModel(engine, exerciseDao, repository, clock, audioPlayer)
         advanceUntilIdle()
         vm.start()
         vm.skip()
