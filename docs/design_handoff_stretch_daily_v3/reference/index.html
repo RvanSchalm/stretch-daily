@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stretch Daily — Android app</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Manrope:wght@400;500;600;700&family=Fraunces:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  html, body { margin:0; padding:0; background:#f0eee9; font-family:'Manrope',system-ui,sans-serif; color:#1f2a1d; }
+  * { box-sizing: border-box; }
+  @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes slideUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
+
+  .phone {
+    width: 390px; height: 780px;
+    border-radius: 42px; overflow: hidden;
+    position: relative;
+    box-shadow: 0 20px 50px -20px rgba(31,42,29,0.3), 0 0 0 1px rgba(31,42,29,0.08);
+  }
+
+  #tweaks-panel {
+    position: fixed; right: 20px; top: 20px; width: 280px;
+    background: #fbf8f0;
+    border: 1px solid rgba(31,42,29,0.1);
+    border-radius: 16px; padding: 14px 16px 16px;
+    font-family: 'Manrope', system-ui, sans-serif;
+    font-size: 12px; color: #1f2a1d;
+    z-index: 1000;
+    box-shadow: 0 12px 36px -8px rgba(0,0,0,0.18);
+    max-height: calc(100vh - 40px); overflow-y: auto;
+  }
+  #tweaks-panel h3 {
+    margin: 0 0 10px;
+    font-family: 'Playfair Display', serif;
+    font-size: 17px; font-weight: 500; letter-spacing: -0.3px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  #tweaks-panel h3 .dot { width:8px; height:8px; border-radius:50%; background:#2e4a2a; }
+  .tweak-group { margin-bottom: 10px; }
+  .tweak-group > label {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px; letter-spacing: 1.2px; text-transform: uppercase;
+    color: rgba(31,42,29,0.55);
+    margin-bottom: 5px;
+  }
+  .tweak-opts { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tweak-opts button {
+    background: rgba(31,42,29,0.06); color: #1f2a1d;
+    border: none; border-radius: 999px;
+    padding: 4px 9px; cursor: pointer;
+    font-family: 'Manrope', sans-serif; font-size: 11px; font-weight: 500;
+  }
+  .tweak-opts button.on { background: #2e4a2a; color: #f3efe5; }
+  .tweak-opts button.swatch {
+    width: 22px; height: 22px; padding: 0; border-radius: 50%;
+    border: 1px solid rgba(31,42,29,0.15);
+    position: relative;
+  }
+  .tweak-opts button.swatch.on {
+    box-shadow: 0 0 0 2px #f0eee9, 0 0 0 4px #2e4a2a;
+  }
+  body:not(.tweaks-on) #tweaks-panel { display: none; }
+</style>
+
+<!-- React + Babel (pinned) -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- Data + themes (plain JS) -->
+<script src="data.js"></script>
+<script src="themes.js"></script>
+
+<!-- JSX components (load order matters) -->
+<script type="text/babel" src="design-canvas.jsx" data-plugins="transform-react-jsx-source" data-filename="design-canvas.jsx"></script>
+<script type="text/babel" src="components.jsx" data-plugins="transform-react-jsx-source" data-filename="components.jsx"></script>
+<script type="text/babel" src="screens.jsx" data-plugins="transform-react-jsx-source" data-filename="screens.jsx"></script>
+<script type="text/babel" src="session.jsx" data-plugins="transform-react-jsx-source" data-filename="session.jsx"></script>
+<script type="text/babel" src="app.jsx" data-plugins="transform-react-jsx-source" data-filename="app.jsx"></script>
+</head>
+
+<body>
+<div id="tweaks-panel">
+  <h3>Tweaks <span class="dot"></span></h3>
+  <div id="tweaks-body"></div>
+</div>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react" data-plugins="transform-react-jsx-source" data-filename="root.jsx">
+const { useState, useEffect } = React;
+
+const TWEAKS_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "benchmarkBannerOn": false,
+  "bgColor": "#fbf8f0",
+  "populated": true,
+  "sessionState": "overview"
+}/*EDITMODE-END*/;
+
+const BG_COLORS = [
+  { value: "#f2eee4", label: "Current" },
+  { value: "#f5f3ea", label: "Lighter" },
+  { value: "#fbf8f0", label: "Cream" },
+];
+
+function TweaksPanel({ tweaks, setTweaks }) {
+  const setKey = (k, v) => {
+    const next = { ...tweaks, [k]: v };
+    setTweaks(next);
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [k]: v } }, '*');
+  };
+  const Opt = ({ k, v, label }) => (
+    <button className={tweaks[k] === v ? "on" : ""} onClick={() => setKey(k, v)}>{label}</button>
+  );
+  return (
+    <div>
+      <div className="tweak-group">
+        <label>Session State</label>
+        <div className="tweak-opts">
+          <Opt k="sessionState" v="overview" label="Overview"/>
+          <Opt k="sessionState" v="running" label="Running"/>
+          <Opt k="sessionState" v="done" label="Complete"/>
+        </div>
+      </div>
+      <div className="tweak-group">
+        <label>History</label>
+        <div className="tweak-opts">
+          <Opt k="populated" v={true} label="Populated"/>
+          <Opt k="populated" v={false} label="Empty"/>
+        </div>
+      </div>
+      <div className="tweak-group">
+        <label>Benchmark Banner</label>
+        <div className="tweak-opts">
+          <Opt k="benchmarkBannerOn" v={true} label="On"/>
+          <Opt k="benchmarkBannerOn" v={false} label="Off"/>
+        </div>
+      </div>
+      <div className="tweak-group">
+        <label>Background Color</label>
+        <div className="tweak-opts">
+          {BG_COLORS.map(c => (
+            <button
+              key={c.value}
+              className={"swatch " + (tweaks.bgColor === c.value ? "on" : "")}
+              style={{ background: c.value }}
+              title={c.label + " · " + c.value}
+              onClick={() => setKey("bgColor", c.value)}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Phone({ theme, tweaks }) {
+  return (
+    <div className="phone">
+      <StretchApp theme={theme} tweaks={tweaks}/>
+    </div>
+  );
+}
+
+function PageTitle() {
+  return (
+    <div style={{
+      padding: "56px 60px 8px",
+      fontFamily: "'Manrope', system-ui, sans-serif",
+      color: "#1f2a1d",
+    }}>
+      <div style={{
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 11, letterSpacing: 1.8, textTransform: "uppercase",
+        color: "rgba(31,42,29,0.55)", marginBottom: 10,
+      }}>
+        Stretch Daily · Android · v0.1
+      </div>
+      <h1 style={{
+        fontFamily: "'Manrope', system-ui, sans-serif",
+        fontSize: 56, fontWeight: 600, letterSpacing: -1.5,
+        lineHeight: 1, margin: "0 0 10px",
+        color: "#1f2a1d",
+      }}>
+        Stretch Daily
+      </h1>
+      <div style={{
+        color: "#4a5144", fontSize: 15, maxWidth: 560, lineHeight: 1.5,
+        fontFamily: "'Manrope', system-ui, sans-serif",
+      }}>
+        Five core screens — each responds to the Tweaks panel (session state, history, benchmark banner).
+      </div>
+    </div>
+  );
+}
+
+function Root() {
+  const [tweaks, setTweaksRaw] = useState(TWEAKS_DEFAULTS);
+  const [editMode, setEditMode] = useState(false);
+
+  const setTweaks = t => setTweaksRaw(t);
+
+  useEffect(() => {
+    const onMsg = e => {
+      const d = e.data || {};
+      if (d.type === '__activate_edit_mode') { setEditMode(true); document.body.classList.add('tweaks-on'); }
+      if (d.type === '__deactivate_edit_mode') { setEditMode(false); document.body.classList.remove('tweaks-on'); }
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  return (
+    <div>
+      <PageTitle/>
+      <DesignCanvas>
+        <DCSection id="flows" title="Key Flows" subtitle="Five core screens — each responds to the Tweaks panel">
+          <DCArtboard id="flow-dashboard" label="Dashboard" width={390} height={780}>
+            <Phone theme={window.THEMES.sage} tweaks={{...tweaks, __tab:"dashboard"}}/>
+          </DCArtboard>
+          <DCArtboard id="flow-overview" label="Session overview" width={390} height={780}>
+            <Phone theme={window.THEMES.sage} tweaks={{...tweaks, __tab:"session", sessionState:"overview"}}/>
+          </DCArtboard>
+          <DCArtboard id="flow-session" label="In-session player" width={390} height={780}>
+            <Phone theme={window.THEMES.sage} tweaks={{...tweaks, __tab:"session", sessionState:"running"}}/>
+          </DCArtboard>
+          <DCArtboard id="flow-complete" label="Session complete" width={390} height={780}>
+            <Phone theme={window.THEMES.sage} tweaks={{...tweaks, __tab:"session", sessionState:"done"}}/>
+          </DCArtboard>
+          <DCArtboard id="flow-log" label="Benchmark log" width={390} height={780}>
+            <Phone theme={window.THEMES.sage} tweaks={{...tweaks, __tab:"log"}}/>
+          </DCArtboard>
+          <DCArtboard id="flow-chart" label="Analytics" width={390} height={780}>
+            <Phone theme={window.THEMES.sage} tweaks={{...tweaks, __tab:"chart"}}/>
+          </DCArtboard>
+          <DCArtboard id="flow-settings" label="Settings" width={390} height={780}>
+            <Phone theme={window.THEMES.sage} tweaks={{...tweaks, __tab:"settings"}}/>
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+
+      {editMode && ReactDOM.createPortal(
+        <TweaksPanel tweaks={tweaks} setTweaks={setTweaks}/>,
+        document.getElementById('tweaks-body')
+      )}
+    </div>
+  );
+}
+
+function mount() {
+  if (!window.StretchApp || !window.DesignCanvas) return setTimeout(mount, 30);
+  ReactDOM.createRoot(document.getElementById('root')).render(<Root/>);
+}
+mount();
+</script>
+</body>
+</html>
