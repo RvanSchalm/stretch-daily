@@ -16,6 +16,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -29,7 +30,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.stretchdaily.app.ui.screen.dashboard.DashboardScreen
 import com.stretchdaily.app.ui.screen.placeholder.PlaceholderScreen
+import com.stretchdaily.app.ui.screen.session.SessionCompleteScreen
 import com.stretchdaily.app.ui.screen.session.SessionOverviewScreen
+import com.stretchdaily.app.ui.screen.session.SessionPlayerScreen
 import com.stretchdaily.app.ui.theme.Theme
 import java.util.Locale
 
@@ -221,18 +224,40 @@ private fun androidx.navigation.NavGraphBuilder.sessionGraph(
                 contentPadding = contentPadding,
             )
         }
-        composable(Routes.SESSION_PLAYER) {
-            PlaceholderScreen(
-                tabLabel = "Session player",
-                unlocksInPhase = "R4",
-                contentPadding = PaddingValues(0.dp),
+        composable(Routes.SESSION_PLAYER) { backStackEntry ->
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(Routes.SESSION_GRAPH)
+            }
+            SessionPlayerScreen(
+                parentEntry = parentEntry,
+                onClose = {
+                    navController.popBackStack(
+                        route = Routes.TODAY,
+                        inclusive = false,
+                    )
+                },
+                onComplete = {
+                    navController.navigate(Routes.SESSION_COMPLETE) {
+                        // Clear the player from backstack so Back-to-today on
+                        // Complete pops straight to the dashboard instead of
+                        // showing the player again on the way out.
+                        popUpTo(Routes.SESSION_PLAYER) { inclusive = true }
+                    }
+                },
             )
         }
-        composable(Routes.SESSION_COMPLETE) {
-            PlaceholderScreen(
-                tabLabel = "Session complete",
-                unlocksInPhase = "R4",
-                contentPadding = PaddingValues(0.dp),
+        composable(Routes.SESSION_COMPLETE) { backStackEntry ->
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(Routes.SESSION_GRAPH)
+            }
+            SessionCompleteScreen(
+                parentEntry = parentEntry,
+                onBackToToday = {
+                    navController.popBackStack(
+                        route = Routes.TODAY,
+                        inclusive = false,
+                    )
+                },
             )
         }
     }
