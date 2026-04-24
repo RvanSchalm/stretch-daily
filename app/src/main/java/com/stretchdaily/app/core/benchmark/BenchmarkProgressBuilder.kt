@@ -10,7 +10,7 @@ import com.stretchdaily.app.core.model.FlexibilityTier
  * `0f` is the top of the chart (most flexible) and `1f` is the bottom
  * (stiffest) — improvement therefore reads as a line that trends upward.
  */
-internal data class ProgressPoint(
+data class ProgressPoint(
     val xRatio: Float,
     val yRatio: Float,
     val timestampMillis: Long,
@@ -18,7 +18,7 @@ internal data class ProgressPoint(
 )
 
 /** Series of [ProgressPoint]s ready to render. Empty when there are no logs. */
-internal data class ProgressSeries(val points: List<ProgressPoint>)
+data class ProgressSeries(val points: List<ProgressPoint>)
 
 /**
  * Pure-Kotlin builder that turns a list of [BenchmarkLog]s into a
