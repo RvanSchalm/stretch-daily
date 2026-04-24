@@ -12,6 +12,7 @@ import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 /**
  * One stop for reading and writing session history. The [SessionViewModel] talks
@@ -78,6 +79,44 @@ class SessionRepository @Inject constructor(
 
     /** All session records, newest first. Backs the session history screen. */
     fun observeAllSessions(): Flow<List<SessionRecord>> = sessionDao.observeAllRecords()
+
+    /**
+     * Current streak, reactively. Wraps [SessionDao.observeAllRecords] and
+     * runs [computeStreak] on every emission. Dashboard uses this so the
+     * streak updates the moment a session is recorded.
+     */
+    fun streakFlow(zoneId: ZoneId = ZoneId.systemDefault()): Flow<Int> =
+        sessionDao.observeAllRecords().map { records ->
+            computeStreak(records.map { it.completedAt }, clock.now(), zoneId)
+        }
+
+    /**
+     * This week's completed session dates (Monday-start, inclusive of today).
+     * Emits the set of [LocalDate]s the WeekStrip paints as "completed".
+     */
+    fun weeklyFlow(zoneId: ZoneId = ZoneId.systemDefault()): Flow<Set<LocalDate>> =
+        sessionDao.observeAllRecords().map { records ->
+            val today = LocalDate.ofInstant(Instant.ofEpochMilli(clock.now()), zoneId)
+            val mondayStart = today.minusDays((today.dayOfWeek.value - 1).toLong())
+            records.asSequence()
+                .map { LocalDate.ofInstant(Instant.ofEpochMilli(it.completedAt), zoneId) }
+                .filter { !it.isBefore(mondayStart) && !it.isAfter(today) }
+                .toSet()
+        }
+
+    /**
+     * Total session count + total minutes across all recorded sessions.
+     * Used by two KPI cards on the Dashboard ("Total time", "Sessions")
+     * and by Settings → Library (R6).
+     */
+    val totalsFlow: Flow<Totals> = sessionDao.observeAllRecords().map { records ->
+        Totals(
+            sessions = records.size,
+            totalMinutes = records.sumOf { it.totalDurationSeconds } / 60,
+        )
+    }
+
+    data class Totals(val sessions: Int, val totalMinutes: Int)
 
     companion object {
         /**
