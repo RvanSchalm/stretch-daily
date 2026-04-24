@@ -211,9 +211,10 @@ earlier ones.
 3. **`Pill(onClick, label, leadingIcon, variant)`** + **`CircleButton(size,
    onClick, icon, variant)`** — chrome primitives. `Pill` variants: `Accent`
    (accent bg), `Neutral` (bg2), `DashedOutline` (transparent + dashed
-   accent border for "Perform at your own pace"). `CircleButton` variants:
-   `Bg2` (default chrome) and `Ink` (inverted — used for session-player
-   next button).
+   accent border for "Perform at your own pace"). `CircleButton` sizes:
+   36 / 44 / 52 / 58 dp (`Small` / `Medium` / `Large` / `Large58`).
+   Variants: `Bg2` (default chrome), `Ink` (inverted — session-player next
+   button), `Accent` (accent bg + `bg` icon — dashboard "Begin session" CTA).
 4. **`Sheet(visible, onDismiss, content)`** — bottom sheet. Slide-up 250 ms
    ease, backdrop fade 200 ms. Top-only `radiusLg`. Shadow per §4.5.
    Defaults to Material 3 `ModalBottomSheet` with token overrides; swap
