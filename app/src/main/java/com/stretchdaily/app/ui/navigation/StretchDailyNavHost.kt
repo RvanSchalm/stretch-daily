@@ -59,6 +59,8 @@ object Routes {
     const val CAROUSEL_STEP = "carousel/{step}"
     const val ARG_CAROUSEL_STEP = "step"
     fun carouselStep(step: Int) = "carousel/$step"
+
+    const val DEBUG_GALLERY = "debug/gallery"
 }
 
 private data class TabItem(
@@ -135,9 +137,16 @@ fun StretchDailyNavHost(navController: NavHostController = rememberNavController
                     tabLabel = "Settings",
                     unlocksInPhase = "R6",
                     contentPadding = padding,
+                    onLongPress = { navController.navigate(Routes.DEBUG_GALLERY) },
                 )
             }
             carouselGraph()
+            composable(Routes.DEBUG_GALLERY) {
+                com.stretchdaily.app.ui.debug.ComponentGalleryScreen(
+                    contentPadding = padding,
+                    onClose = { navController.popBackStack() },
+                )
+            }
         }
     }
 }

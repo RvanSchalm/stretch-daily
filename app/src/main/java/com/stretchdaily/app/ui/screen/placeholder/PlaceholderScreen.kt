@@ -1,6 +1,7 @@
 package com.stretchdaily.app.ui.screen.placeholder
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.stretchdaily.app.ui.theme.Theme
 import java.util.Locale
@@ -25,20 +27,30 @@ import java.util.Locale
  *  - the phase tag that unlocks this tab.
  *
  * Applies the outer scaffold's `contentPadding` so content breathes
- * against the status bar and clears the bottom nav.
+ * against the status bar and clears the bottom nav. Optional
+ * [onLongPress] lambda wires a long-press gesture used to open hidden
+ * debug screens during development.
  */
 @Composable
 fun PlaceholderScreen(
     tabLabel: String,
     unlocksInPhase: String,
     contentPadding: PaddingValues,
+    onLongPress: (() -> Unit)? = null,
 ) {
+    val pressMod = if (onLongPress != null) {
+        Modifier.pointerInput(Unit) {
+            detectTapGestures(onLongPress = { onLongPress() })
+        }
+    } else Modifier
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Theme.colors.bg)
             .padding(contentPadding)
-            .padding(Theme.dims.padScreen),
+            .padding(Theme.dims.padScreen)
+            .then(pressMod),
         contentAlignment = Alignment.Center,
     ) {
         Column(
