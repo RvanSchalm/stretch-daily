@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,7 +43,13 @@ fun SessionCompleteScreen(
         ?: return // shouldn't be reached; player navigates here only after complete
 
     Box(
-        modifier = modifier.fillMaxSize().background(Theme.colors.accent),
+        // Accent bg fills edge-to-edge (drawn before the inset padding), then
+        // systemBarsPadding shrinks the content area so centered content
+        // stays clear of the system clock (top) and gesture nav (bottom).
+        modifier = modifier
+            .fillMaxSize()
+            .background(Theme.colors.accent)
+            .systemBarsPadding(),
         contentAlignment = Alignment.Center,
     ) {
         Column(

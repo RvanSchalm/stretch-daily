@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -74,7 +75,12 @@ private fun PlayerBody(
     onTogglePause: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(20.dp),
+        // Session flow is immersive (no outer Scaffold to absorb system
+        // insets), so each screen handles its own. systemBarsPadding covers
+        // both the status bar (top) and the gesture nav bar (bottom) —
+        // the bottom matters because the Prev/Pause/Next control row sits
+        // flush against it.
+        modifier = Modifier.fillMaxSize().systemBarsPadding().padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // Top bar.
