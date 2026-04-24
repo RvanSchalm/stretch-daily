@@ -27,6 +27,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.stretchdaily.app.ui.screen.dashboard.DashboardScreen
 import com.stretchdaily.app.ui.screen.placeholder.PlaceholderScreen
 import com.stretchdaily.app.ui.theme.Theme
 import java.util.Locale
@@ -111,9 +112,9 @@ fun StretchDailyNavHost(navController: NavHostController = rememberNavController
             startDestination = Routes.TODAY,
         ) {
             composable(Routes.TODAY) {
-                PlaceholderScreen(
-                    tabLabel = "Today",
-                    unlocksInPhase = "R3",
+                DashboardScreen(
+                    onStartSession = { navController.navigate(Routes.SESSION_OVERVIEW) },
+                    onBenchmarkBannerTap = { navController.navigate(Routes.carouselStep(0)) },
                     contentPadding = padding,
                 )
             }
