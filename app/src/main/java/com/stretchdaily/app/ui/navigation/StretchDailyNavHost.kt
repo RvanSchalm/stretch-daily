@@ -28,7 +28,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.stretchdaily.app.ui.screen.carousel.BenchmarkCarouselScreen
 import com.stretchdaily.app.ui.screen.dashboard.DashboardScreen
+import com.stretchdaily.app.ui.screen.log.BenchmarkLogScreen
 import com.stretchdaily.app.ui.screen.placeholder.PlaceholderScreen
 import com.stretchdaily.app.ui.screen.session.SessionCompleteScreen
 import com.stretchdaily.app.ui.screen.session.SessionOverviewScreen
@@ -124,9 +126,8 @@ fun StretchDailyNavHost(navController: NavHostController = rememberNavController
             }
             sessionGraph(padding, navController)
             composable(Routes.LOG) {
-                PlaceholderScreen(
-                    tabLabel = "Log",
-                    unlocksInPhase = "R5",
+                BenchmarkLogScreen(
+                    onStartCarousel = { navController.navigate(Routes.carouselStep(0)) },
                     contentPadding = padding,
                 )
             }
@@ -145,7 +146,7 @@ fun StretchDailyNavHost(navController: NavHostController = rememberNavController
                     onLongPress = { navController.navigate(Routes.DEBUG_GALLERY) },
                 )
             }
-            carouselGraph()
+            carouselGraph(navController)
             composable(Routes.DEBUG_GALLERY) {
                 com.stretchdaily.app.ui.debug.ComponentGalleryScreen(
                     contentPadding = padding,
@@ -263,19 +264,47 @@ private fun androidx.navigation.NavGraphBuilder.sessionGraph(
     }
 }
 
-/** Benchmark carousel overlay graph — bottom-nav hidden on all steps. */
-private fun androidx.navigation.NavGraphBuilder.carouselGraph() {
+/**
+ * Benchmark carousel overlay graph — bottom-nav hidden on all steps. The
+ * nested graph scopes one shared [BenchmarkCarouselViewModel] across all
+ * 10 step destinations via `hiltViewModel(parentEntry)`.
+ *
+ * Advance behavior: `navigate(carousel/next)` with
+ * `popUpTo(current) { inclusive = true }` so the back-stack never grows
+ * during the 10-step walk-through. Finish (last step save or Close) pops
+ * the whole graph back to the caller.
+ */
+private fun androidx.navigation.NavGraphBuilder.carouselGraph(
+    navController: NavHostController,
+) {
     navigation(startDestination = Routes.carouselStep(0), route = Routes.CAROUSEL_GRAPH) {
         composable(
             route = Routes.CAROUSEL_STEP,
             arguments = listOf(
-                navArgument(Routes.ARG_CAROUSEL_STEP) { type = NavType.IntType }
+                navArgument(Routes.ARG_CAROUSEL_STEP) {
+                    type = NavType.IntType
+                    defaultValue = 0
+                }
             ),
-        ) {
-            PlaceholderScreen(
-                tabLabel = "Benchmark carousel",
-                unlocksInPhase = "R5",
-                contentPadding = PaddingValues(0.dp),
+        ) { backStackEntry ->
+            val step = backStackEntry.arguments?.getInt(Routes.ARG_CAROUSEL_STEP) ?: 0
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(Routes.CAROUSEL_GRAPH)
+            }
+            BenchmarkCarouselScreen(
+                step = step,
+                parentEntry = parentEntry,
+                onAdvance = { next ->
+                    navController.navigate(Routes.carouselStep(next)) {
+                        popUpTo(Routes.CAROUSEL_STEP) { inclusive = true }
+                    }
+                },
+                onFinish = {
+                    navController.popBackStack(
+                        route = Routes.CAROUSEL_GRAPH,
+                        inclusive = true,
+                    )
+                },
             )
         }
     }
