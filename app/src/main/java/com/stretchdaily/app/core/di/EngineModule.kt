@@ -5,6 +5,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import java.time.ZoneId
 import javax.inject.Singleton
 
 /**
@@ -22,4 +23,7 @@ object EngineModule {
     @Provides
     @Singleton
     fun provideClock(): Clock = Clock { System.currentTimeMillis() }
+
+    @Provides
+    fun provideZoneId(): ZoneId = ZoneId.systemDefault()
 }
