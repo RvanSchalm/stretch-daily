@@ -16,6 +16,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -29,6 +30,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.stretchdaily.app.ui.screen.dashboard.DashboardScreen
 import com.stretchdaily.app.ui.screen.placeholder.PlaceholderScreen
+import com.stretchdaily.app.ui.screen.session.SessionCompleteScreen
+import com.stretchdaily.app.ui.screen.session.SessionOverviewScreen
+import com.stretchdaily.app.ui.screen.session.SessionPlayerScreen
 import com.stretchdaily.app.ui.theme.Theme
 import java.util.Locale
 
@@ -118,7 +122,7 @@ fun StretchDailyNavHost(navController: NavHostController = rememberNavController
                     contentPadding = padding,
                 )
             }
-            sessionGraph(padding)
+            sessionGraph(padding, navController)
             composable(Routes.LOG) {
                 PlaceholderScreen(
                     tabLabel = "Log",
@@ -209,27 +213,51 @@ private fun NavHostController.navigateToTab(route: String) {
  * screens; the graph structure (nested routes, parentEntry-scoped VM)
  * already matches the final shape.
  */
-private fun androidx.navigation.NavGraphBuilder.sessionGraph(contentPadding: PaddingValues) {
+private fun androidx.navigation.NavGraphBuilder.sessionGraph(
+    contentPadding: PaddingValues,
+    navController: NavHostController,
+) {
     navigation(startDestination = Routes.SESSION_OVERVIEW, route = Routes.SESSION_GRAPH) {
         composable(Routes.SESSION_OVERVIEW) {
-            PlaceholderScreen(
-                tabLabel = "Session overview",
-                unlocksInPhase = "R4",
+            SessionOverviewScreen(
+                onBeginSession = { navController.navigate(Routes.SESSION_PLAYER) },
                 contentPadding = contentPadding,
             )
         }
-        composable(Routes.SESSION_PLAYER) {
-            PlaceholderScreen(
-                tabLabel = "Session player",
-                unlocksInPhase = "R4",
-                contentPadding = PaddingValues(0.dp),
+        composable(Routes.SESSION_PLAYER) { backStackEntry ->
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(Routes.SESSION_GRAPH)
+            }
+            SessionPlayerScreen(
+                parentEntry = parentEntry,
+                onClose = {
+                    navController.popBackStack(
+                        route = Routes.TODAY,
+                        inclusive = false,
+                    )
+                },
+                onComplete = {
+                    navController.navigate(Routes.SESSION_COMPLETE) {
+                        // Clear the player from backstack so Back-to-today on
+                        // Complete pops straight to the dashboard instead of
+                        // showing the player again on the way out.
+                        popUpTo(Routes.SESSION_PLAYER) { inclusive = true }
+                    }
+                },
             )
         }
-        composable(Routes.SESSION_COMPLETE) {
-            PlaceholderScreen(
-                tabLabel = "Session complete",
-                unlocksInPhase = "R4",
-                contentPadding = PaddingValues(0.dp),
+        composable(Routes.SESSION_COMPLETE) { backStackEntry ->
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(Routes.SESSION_GRAPH)
+            }
+            SessionCompleteScreen(
+                parentEntry = parentEntry,
+                onBackToToday = {
+                    navController.popBackStack(
+                        route = Routes.TODAY,
+                        inclusive = false,
+                    )
+                },
             )
         }
     }

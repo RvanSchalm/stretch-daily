@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.stretchdaily.app.ui.theme.Theme
 
 /** Visual variants for [Pill]. */
-enum class PillVariant { Accent, Neutral, DashedOutline }
+enum class PillVariant { Accent, Neutral, DashedOutline, Inverse }
 
 /**
  * Pill button. Rounded to `radiusPill`, 14 dp vertical padding by default.
@@ -37,6 +37,8 @@ enum class PillVariant { Accent, Neutral, DashedOutline }
  *  - [PillVariant.Neutral] - bg2 bg + ink text (secondary actions).
  *  - [PillVariant.DashedOutline] - transparent + dashed accent border.
  *    Used for "Perform at your own pace" on rep-based session moves.
+ *  - [PillVariant.Inverse] - `accentInk` bg + `accent` text. Used on
+ *    the Session Complete accent-colored screen for "Back to today".
  *
  * `Modifier.border` in Compose only draws solid strokes, so DashedOutline
  * renders its border via `Modifier.drawBehind` + `Stroke(pathEffect = ...)`.
@@ -55,11 +57,13 @@ fun Pill(
         PillVariant.Accent -> Theme.colors.accent
         PillVariant.Neutral -> Theme.colors.bg2
         PillVariant.DashedOutline -> Color.Transparent
+        PillVariant.Inverse -> Theme.colors.accentInk
     }
     val fg = when (variant) {
         PillVariant.Accent -> Theme.colors.accentInk
         PillVariant.Neutral -> Theme.colors.ink
         PillVariant.DashedOutline -> Theme.colors.accent
+        PillVariant.Inverse -> Theme.colors.accent
     }
     val borderMod: Modifier = when (variant) {
         PillVariant.DashedOutline -> {
