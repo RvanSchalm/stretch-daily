@@ -15,6 +15,7 @@ import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 
 /**
  * Repository for benchmarks and their logs. Wraps the two DAOs plus the
@@ -51,6 +52,26 @@ class BenchmarkRepository @Inject constructor(
 
     fun observeLogsFor(benchmarkId: String): Flow<List<BenchmarkLog>> =
         benchmarkLogDao.observeForBenchmark(benchmarkId)
+
+    /**
+     * Reactive view of benchmarks that need re-logging — anything whose
+     * latest log is before the current month-start, or that has never been
+     * logged. Dashboard banner + Log screen (R5) both subscribe.
+     */
+    fun overdueFlow(zoneId: ZoneId = ZoneId.systemDefault()): Flow<List<Benchmark>> =
+        combine(observeAllBenchmarks(), observeLatestLogs()) { benchmarks, logs ->
+            computeOverdueBenchmarks(benchmarks, logs, clock.now(), zoneId)
+        }
+
+    /**
+     * Reactive view of the single next-up benchmark + how many days until
+     * it's due. Emits `null` only if the catalog is empty (shouldn't happen
+     * in production because the seeder inserts 10).
+     */
+    fun nextDueFlow(zoneId: ZoneId = ZoneId.systemDefault()): Flow<BenchmarkWithDueDate?> =
+        combine(observeAllBenchmarks(), observeLatestLogs()) { benchmarks, logs ->
+            computeNextDue(benchmarks, logs, clock.now(), zoneId)
+        }
 
     suspend fun getLog(id: Long): BenchmarkLog? = benchmarkLogDao.getById(id)
 
