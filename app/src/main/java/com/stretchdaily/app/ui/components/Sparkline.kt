@@ -25,10 +25,16 @@ fun Sparkline(
     values: List<Double>,
     modifier: Modifier = Modifier,
 ) {
+    // Capture theme colors at the composable scope — `Theme.colors` is a
+    // @Composable property and can't be read inside the Canvas draw lambda.
+    val emptyColor = Theme.colors.line
+    val strokeColor = Theme.colors.ink3
+    val markerColor = Theme.colors.accent
+
     Canvas(modifier = modifier.size(width = 50.dp, height = 14.dp)) {
         if (values.size < 2) {
             drawLine(
-                color = Theme.colors.line,
+                color = emptyColor,
                 start = Offset(0f, size.height / 2f),
                 end = Offset(size.width, size.height / 2f),
                 strokeWidth = 1.dp.toPx(),
@@ -47,7 +53,7 @@ fun Sparkline(
 
         for (i in 1 until points.size) {
             drawLine(
-                color = Theme.colors.ink3,
+                color = strokeColor,
                 start = points[i - 1],
                 end = points[i],
                 strokeWidth = 1.5.dp.toPx(),
@@ -56,7 +62,7 @@ fun Sparkline(
         }
 
         drawCircle(
-            color = Theme.colors.accent,
+            color = markerColor,
             radius = 2.5.dp.toPx(),
             center = points.last(),
         )

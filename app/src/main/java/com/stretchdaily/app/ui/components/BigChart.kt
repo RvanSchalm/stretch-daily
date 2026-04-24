@@ -66,6 +66,15 @@ internal fun BigChart(
             )
         }
 
+        // Capture theme colors at the composable scope — `Theme.colors` is a
+        // @Composable property and can't be read inside the Canvas draw lambda.
+        val bandShade = Theme.colors.ink3.copy(alpha = 0.05f)
+        val gridColor = Theme.colors.line2
+        val midlineColor = Theme.colors.line
+        val accentColor = Theme.colors.accent
+        val accentFill = Theme.colors.accent.copy(alpha = 0.12f)
+        val markerOutline = Theme.colors.bg
+
         Box(modifier = Modifier.fillMaxHeight().fillMaxWidth()) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val bandCount = 5
@@ -73,11 +82,7 @@ internal fun BigChart(
 
                 for (i in 0 until bandCount) {
                     drawRect(
-                        color = if (i % 2 == 0) {
-                            Color.Transparent
-                        } else {
-                            Theme.colors.ink3.copy(alpha = 0.05f)
-                        },
+                        color = if (i % 2 == 0) Color.Transparent else bandShade,
                         topLeft = Offset(0f, i * bandHeight),
                         size = Size(size.width, bandHeight),
                     )
@@ -85,7 +90,7 @@ internal fun BigChart(
 
                 for (i in 1 until bandCount) {
                     drawLine(
-                        color = Theme.colors.line2,
+                        color = gridColor,
                         start = Offset(0f, i * bandHeight),
                         end = Offset(size.width, i * bandHeight),
                         strokeWidth = 1f,
@@ -93,7 +98,7 @@ internal fun BigChart(
                 }
 
                 drawLine(
-                    color = Theme.colors.line,
+                    color = midlineColor,
                     start = Offset(0f, size.height / 2f),
                     end = Offset(size.width, size.height / 2f),
                     strokeWidth = 1.dp.toPx(),
@@ -114,31 +119,21 @@ internal fun BigChart(
                     lineTo(offsets.last().x, size.height)
                     close()
                 }
-                drawPath(
-                    path = fillPath,
-                    color = Theme.colors.accent.copy(alpha = 0.12f),
-                )
+                drawPath(path = fillPath, color = accentFill)
+
                 val linePath = Path().apply {
                     moveTo(offsets.first().x, offsets.first().y)
                     offsets.drop(1).forEach { lineTo(it.x, it.y) }
                 }
                 drawPath(
                     path = linePath,
-                    color = Theme.colors.accent,
+                    color = accentColor,
                     style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round),
                 )
 
                 val last = offsets.last()
-                drawCircle(
-                    color = Theme.colors.bg,
-                    radius = 6.dp.toPx(),
-                    center = last,
-                )
-                drawCircle(
-                    color = Theme.colors.accent,
-                    radius = 4.dp.toPx(),
-                    center = last,
-                )
+                drawCircle(color = markerOutline, radius = 6.dp.toPx(), center = last)
+                drawCircle(color = accentColor, radius = 4.dp.toPx(), center = last)
             }
         }
     }
