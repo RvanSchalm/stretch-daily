@@ -13,6 +13,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import com.stretchdaily.app.ui.theme.Theme
 import java.time.DayOfWeek
@@ -43,13 +49,13 @@ fun dayStateFor(
 /**
  * 7-square week strip, Monday-start. Each square:
  *  - Filled `accent` if [DayState.Completed].
- *  - 2 dp `accent` outline if [DayState.Today] (and not completed).
- *  - 1 dp `line` outline if [DayState.Idle].
+ *  - Dashed 2 dp `accent` outline if [DayState.Today] (and not completed).
+ *  - Solid 1 dp `line` outline if [DayState.Idle].
  *
- * Tiny weekday label above each square in mono-caps small. Compose
- * `Modifier.border` renders solid strokes only; the "today" state uses
- * a solid 2 dp accent outline. Swap to `Modifier.drawBehind` with
- * `PathEffect.dashPathEffect(...)` if a dashed look is required later.
+ * Tiny weekday label above each square in mono-caps small. `Modifier.border`
+ * only supports solid strokes, so the "today" state draws its dashed accent
+ * outline via `Modifier.drawBehind` + `Stroke(pathEffect = dashPathEffect(...))`.
+ * Same pattern as `Pill.DashedOutline`.
  */
 @Composable
 fun WeekStrip(
@@ -82,11 +88,27 @@ fun WeekStrip(
                         .then(
                             when (dayStateFor(day, today, completed)) {
                                 DayState.Completed -> Modifier.background(Theme.colors.accent)
-                                DayState.Today -> Modifier.border(
-                                    width = 2.dp,
-                                    color = Theme.colors.accent,
-                                    shape = RoundedCornerShape(16.dp),
-                                )
+                                DayState.Today -> {
+                                    val strokeColor = Theme.colors.accent
+                                    Modifier.drawBehind {
+                                        val stroke = 2.dp.toPx()
+                                        val inset = stroke / 2f
+                                        val corner = (16.dp.toPx() - inset).coerceAtLeast(0f)
+                                        drawRoundRect(
+                                            color = strokeColor,
+                                            topLeft = Offset(inset, inset),
+                                            size = Size(size.width - stroke, size.height - stroke),
+                                            cornerRadius = CornerRadius(corner, corner),
+                                            style = Stroke(
+                                                width = stroke,
+                                                pathEffect = PathEffect.dashPathEffect(
+                                                    floatArrayOf(6f, 4f),
+                                                    0f,
+                                                ),
+                                            ),
+                                        )
+                                    }
+                                }
                                 DayState.Idle -> Modifier.border(
                                     width = 1.dp,
                                     color = Theme.colors.line,
