@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -58,6 +59,11 @@ fun SessionOverviewScreen(
 
     Box(modifier = modifier.fillMaxSize().background(Theme.colors.bg)) {
         LazyColumn(
+            // Tab screen inside the bottom-nav Scaffold, which sets
+            // contentWindowInsets = WindowInsets(0) — so each tab handles
+            // its own status bar. Bottom is covered by `contentPadding`
+            // coming in from the Scaffold.
+            modifier = Modifier.statusBarsPadding(),
             contentPadding = mergePadding(Theme.dims.padScreen, contentPadding),
             verticalArrangement = Arrangement.spacedBy(Theme.dims.gapSection),
         ) {
