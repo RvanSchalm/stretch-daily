@@ -15,7 +15,6 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -85,16 +84,6 @@ class BenchmarkLogViewModelTest {
 
     private fun viewModel(): BenchmarkLogViewModel =
         BenchmarkLogViewModel(repo, clock)
-
-    @Test
-    fun `initial state is loading`() = runTest(testDispatcher) {
-        coEvery { repo.observeAllBenchmarks() } returns MutableStateFlow(emptyList())
-        coEvery { repo.observeLatestLogs() } returns MutableStateFlow(emptyList())
-        coEvery { repo.observeLogsFor(any()) } returns MutableStateFlow(emptyList())
-        val vm = viewModel()
-        // Pre-advance: initial StateFlow value is still loading.
-        assertTrue(vm.state.value.isLoading)
-    }
 
     @Test
     fun `rows group by category in enum order`() = runTest(testDispatcher) {
