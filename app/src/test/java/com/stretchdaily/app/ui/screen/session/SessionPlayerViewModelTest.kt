@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -88,7 +89,9 @@ class SessionPlayerViewModelTest {
     fun `init emits Running at index 0 and fires start chime`() = runTest {
         stubHolder(plan(item("a", 30), item("b", 30)))
         val vm = viewModel()
-        advanceUntilIdle()
+        // runCurrent drains init; advanceUntilIdle would burn through the
+        // whole session via the 1 Hz timer loop and flip state to Complete.
+        runCurrent()
 
         val running = vm.state.value as SessionPlayerUiState.Running
         assertEquals(0, running.currentIndex)
@@ -103,7 +106,7 @@ class SessionPlayerViewModelTest {
     fun `tick decrements remainingSeconds`() = runTest {
         stubHolder(plan(item("a", 5)))
         val vm = viewModel()
-        advanceUntilIdle()
+        runCurrent()
 
         vm.tick()
         assertEquals(4, (vm.state.value as SessionPlayerUiState.Running).remainingSeconds)
@@ -115,7 +118,7 @@ class SessionPlayerViewModelTest {
     fun `paused tick is a no-op`() = runTest {
         stubHolder(plan(item("a", 5)))
         val vm = viewModel()
-        advanceUntilIdle()
+        runCurrent()
 
         vm.togglePause()
         vm.tick()
@@ -131,7 +134,7 @@ class SessionPlayerViewModelTest {
         stubHolder(plan(item("a", 1), item("b", 30)))
         coEvery { audioPlayer.playStart() } returns Unit
         val vm = viewModel()
-        advanceUntilIdle()
+        runCurrent()
 
         vm.tick() // 1 → 0 → advance
 
@@ -145,7 +148,7 @@ class SessionPlayerViewModelTest {
     fun `unilateral LEFT advances to RIGHT before next exercise`() = runTest {
         stubHolder(plan(item("a", 2, isUnilateral = true), item("b", 10)))
         val vm = viewModel()
-        advanceUntilIdle()
+        runCurrent()
 
         // 2s split: LEFT gets ceiling → 1s, RIGHT 1s.
         vm.tick() // LEFT 1 → 0 → switch to RIGHT
@@ -164,7 +167,7 @@ class SessionPlayerViewModelTest {
     fun `skip jumps straight to next exercise`() = runTest {
         stubHolder(plan(item("a", 60), item("b", 60)))
         val vm = viewModel()
-        advanceUntilIdle()
+        runCurrent()
 
         vm.skip()
         val r = vm.state.value as SessionPlayerUiState.Running
