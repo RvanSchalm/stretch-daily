@@ -40,7 +40,7 @@ import java.util.Locale
  *    via `hiltViewModel(parentEntry)`.
  *  - carousel graph hosts `carousel/{step}` pages.
  *
- * `session/player`, `session/complete`, and `carousel/*` hide the bottom
+ * `session/player`, `session/complete`, and `carousel/{step}` hide the bottom
  * nav — they're immersive overlays.
  */
 object Routes {
