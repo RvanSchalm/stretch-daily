@@ -8,16 +8,20 @@ class OklchToSrgbTest {
 
     @Test
     fun `oklch neck tint resolves to expected sRGB`() {
-        // Neck: oklch(0.82 0.04 140)  — reference rgb ≈ (197, 214, 194)
+        // Neck: oklch(0.82 0.04 140) → sRGB (182, 202, 178) per CSS Color 4
+        // reference algorithm. Cross-checked against Ottosson's matrix and a
+        // standalone Python implementation of the same pipeline. An earlier
+        // expected value of (197, 214, 194) was pulled from a designer-tool
+        // swatch and didn't match any standard color-space conversion.
         val color = oklchToSrgb(l = 0.82, c = 0.04, hDeg = 140.0)
-        assertRgbWithin(color, expectedR = 0xC5, expectedG = 0xD6, expectedB = 0xC2, tolerance = 3)
+        assertRgbWithin(color, expectedR = 182, expectedG = 202, expectedB = 178, tolerance = 3)
     }
 
     @Test
     fun `oklch accent-soft resolves to expected sRGB`() {
-        // oklch(0.88 0.045 135) — reference rgb ≈ (212, 226, 196)
+        // oklch(0.88 0.045 135) → sRGB (203, 222, 193) per CSS Color 4.
         val color = oklchToSrgb(l = 0.88, c = 0.045, hDeg = 135.0)
-        assertRgbWithin(color, expectedR = 0xD4, expectedG = 0xE2, expectedB = 0xC4, tolerance = 3)
+        assertRgbWithin(color, expectedR = 203, expectedG = 222, expectedB = 193, tolerance = 3)
     }
 
     @Test

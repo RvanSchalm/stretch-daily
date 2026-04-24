@@ -16,8 +16,8 @@ private val Context.preferencesStore by preferencesDataStore(name = "stretch_dai
 /**
  * Thin wrapper over the [Preferences] DataStore for app-wide settings. Each
  * setting gets a typed key + a `Flow` for observation and a `suspend fun` for
- * mutation. Currently only stores the audio cues preference (Phase 7); the
- * file lives in `core/datastore/` so future settings can drop in next to it.
+ * mutation. The file lives in `core/datastore/` so future settings can drop
+ * in next to the existing ones.
  */
 @Singleton
 class SettingsDataStore @Inject constructor(
@@ -34,8 +34,27 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
+    /**
+     * Controls the "next benchmark day" banner on the Dashboard. Default is
+     * `false` — the user opted out of monthly benchmark nagging during
+     * brainstorming (see design spec §8.1). Surfaced in Settings (R6) as a
+     * toggle so the user can opt back in.
+     */
+    val benchmarkBannerEnabled: Flow<Boolean> = context.preferencesStore.data.map { prefs ->
+        prefs[KEY_BENCHMARK_BANNER] ?: DEFAULT_BENCHMARK_BANNER
+    }
+
+    suspend fun setBenchmarkBannerEnabled(enabled: Boolean) {
+        context.preferencesStore.edit { prefs ->
+            prefs[KEY_BENCHMARK_BANNER] = enabled
+        }
+    }
+
     companion object {
         private val KEY_AUDIO_CUES = booleanPreferencesKey("audio_cues_enabled")
         private const val DEFAULT_AUDIO_CUES = true
+
+        private val KEY_BENCHMARK_BANNER = booleanPreferencesKey("benchmark_banner_enabled")
+        private const val DEFAULT_BENCHMARK_BANNER = false
     }
 }

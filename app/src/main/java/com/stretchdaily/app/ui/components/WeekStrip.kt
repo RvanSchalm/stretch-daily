@@ -35,12 +35,20 @@ fun weekOf(day: LocalDate): List<LocalDate> {
     return (0..6L).map { monday.plusDays(it) }
 }
 
-/** Resolves the visual state for [day] given [today] and the completed-set. */
+/**
+ * Resolves the visual state for [day] given [today] and the completed-set.
+ *
+ * Future days are always [DayState.Idle] — the completed set is only
+ * authoritative for days that have already happened. This guards against
+ * dirty fixtures (e.g. tests that seed future dates into the set) and
+ * clock-skew edge cases where the DB reports a session "from tomorrow".
+ */
 fun dayStateFor(
     day: LocalDate,
     today: LocalDate,
     completed: Set<LocalDate>,
 ): DayState = when {
+    day.isAfter(today) -> DayState.Idle
     day in completed -> DayState.Completed
     day == today -> DayState.Today
     else -> DayState.Idle
