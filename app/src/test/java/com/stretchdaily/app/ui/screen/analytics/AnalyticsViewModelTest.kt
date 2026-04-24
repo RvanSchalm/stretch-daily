@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -59,11 +60,11 @@ class AnalyticsViewModelTest {
     private val catalog = listOf(
         numeric("BM_CERVICAL_ROTATION", Category.NECK, "Cervical Rotation"),
         numeric("BM_KNEE_TO_WALL", Category.ANKLES, "Knee-to-wall"),
-        numeric("BM_SIT_AND_REACH", Category.HAMSTRINGS, "Sit and Reach"),
+        numeric("BM_SIT_AND_REACH", Category.HIPS, "Sit and Reach"),
     )
 
     private lateinit var repo: BenchmarkRepository
-    private lateinit var testDispatcher: UnconfinedTestDispatcher
+    private lateinit var testDispatcher: TestDispatcher
 
     @Before
     fun setUp() {
@@ -115,7 +116,7 @@ class AnalyticsViewModelTest {
         val vm = vm()
         advanceUntilIdle()
         assertEquals(
-            listOf(Category.NECK, Category.ANKLES, Category.HAMSTRINGS),
+            listOf(Category.NECK, Category.ANKLES, Category.HIPS),
             vm.state.value.allCategories,
         )
     }
@@ -198,9 +199,9 @@ class AnalyticsViewModelTest {
         coEvery { repo.observeLogsFor(any()) } returns flowOf(emptyList())
         val vm = vm()
         advanceUntilIdle()
-        vm.onFilterChanged(Category.HAMSTRINGS)
+        vm.onFilterChanged(Category.HIPS)
         advanceUntilIdle()
-        assertEquals(Category.HAMSTRINGS, vm.state.value.filter)
+        assertEquals(Category.HIPS, vm.state.value.filter)
         assertEquals(
             listOf("BM_SIT_AND_REACH"),
             vm.state.value.visibleCards.map { it.benchmark.id },

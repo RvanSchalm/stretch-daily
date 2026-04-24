@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -39,7 +40,7 @@ class SettingsViewModelTest {
     private lateinit var benchmarkRepository: BenchmarkRepository
     private lateinit var sessionRepository: SessionRepository
     private lateinit var exerciseDao: ExerciseDao
-    private lateinit var testDispatcher: UnconfinedTestDispatcher
+    private lateinit var testDispatcher: TestDispatcher
 
     private val audioFlow = MutableStateFlow(true)
     private val bannerFlow = MutableStateFlow(false)
