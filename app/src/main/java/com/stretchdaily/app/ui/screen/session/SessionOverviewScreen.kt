@@ -26,6 +26,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -78,6 +80,7 @@ fun SessionOverviewScreen(
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(
                             text = "${state.planMinutes} min",
+                            modifier = Modifier.semantics { heading() },
                             style = Theme.typo.displayMd,
                             color = Theme.colors.ink,
                         )

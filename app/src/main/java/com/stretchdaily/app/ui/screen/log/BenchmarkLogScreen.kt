@@ -28,6 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -136,7 +138,9 @@ private fun HeroHeader() {
             fontSize = 30.sp,
             fontWeight = FontWeight.W500,
             color = Theme.colors.ink,
-            modifier = Modifier.padding(bottom = 6.dp),
+            modifier = Modifier
+                .padding(bottom = 6.dp)
+                .semantics { heading() },
         )
         Text(
             text = "Ten benchmarks across seven categories. Logged on the 1st of each month.",

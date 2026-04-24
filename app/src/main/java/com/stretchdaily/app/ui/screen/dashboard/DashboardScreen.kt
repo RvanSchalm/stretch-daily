@@ -24,6 +24,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -153,6 +155,7 @@ private fun HeroHeader(count: Int, minutes: Int) {
     Column {
         Text(
             text = "Stretch Daily",
+            modifier = Modifier.semantics { heading() },
             style = Theme.typo.displayLg,
             color = Theme.colors.ink,
         )
