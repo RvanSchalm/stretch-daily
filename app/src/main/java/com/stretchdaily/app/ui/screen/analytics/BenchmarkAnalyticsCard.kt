@@ -70,7 +70,7 @@ private fun CardHeaderRow(state: BenchmarkAnalyticsCardState) {
                 color = Theme.colors.ink,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.W600,
-                fontFamily = Theme.typo.body,
+                fontFamily = Theme.typo.bodyLg.fontFamily,
             )
         }
         if (state.latestRawValue != null) {
@@ -81,14 +81,14 @@ private fun CardHeaderRow(state: BenchmarkAnalyticsCardState) {
                         color = Theme.colors.ink,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.W500,
-                        fontFamily = Theme.typo.display,
+                        fontFamily = Theme.typo.displayLg.fontFamily,
                     )
                     Spacer(modifier = Modifier.padding(horizontal = 1.dp))
                     Text(
                         text = state.benchmark.unit,
                         color = Theme.colors.ink3,
                         fontSize = 11.sp,
-                        fontFamily = Theme.typo.body,
+                        fontFamily = Theme.typo.bodyLg.fontFamily,
                     )
                 }
                 state.delta?.let { delta ->

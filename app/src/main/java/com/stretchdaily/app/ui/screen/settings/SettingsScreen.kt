@@ -84,7 +84,7 @@ fun SettingsScreen(
                 color = Theme.colors.ink,
                 fontSize = 30.sp,
                 fontWeight = FontWeight.W500,
-                fontFamily = Theme.typo.display,
+                fontFamily = Theme.typo.displayLg.fontFamily,
             )
             Spacer(modifier = Modifier.height(18.dp))
 
@@ -238,9 +238,9 @@ private fun SettingToggle(
             tint = Theme.colors.ink2,
         )
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = label, color = Theme.colors.ink, fontSize = 13.sp, fontWeight = FontWeight.W600, fontFamily = Theme.typo.body)
+            Text(text = label, color = Theme.colors.ink, fontSize = 13.sp, fontWeight = FontWeight.W600, fontFamily = Theme.typo.bodyLg.fontFamily)
             Spacer(modifier = Modifier.height(1.dp))
-            Text(text = description, color = Theme.colors.ink3, fontSize = 11.sp, fontFamily = Theme.typo.body)
+            Text(text = description, color = Theme.colors.ink3, fontSize = 11.sp, fontFamily = Theme.typo.bodyLg.fontFamily)
         }
         ToggleSwitch(value = value, onChange = onChange)
     }
@@ -291,9 +291,9 @@ private fun SettingRow(
             tint = if (destructive) Theme.colors.warn else Theme.colors.ink2,
         )
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = label, color = textColor, fontSize = 13.sp, fontWeight = FontWeight.W600, fontFamily = Theme.typo.body)
+            Text(text = label, color = textColor, fontSize = 13.sp, fontWeight = FontWeight.W600, fontFamily = Theme.typo.bodyLg.fontFamily)
             Spacer(modifier = Modifier.height(1.dp))
-            Text(text = description, color = Theme.colors.ink3, fontSize = 11.sp, fontFamily = Theme.typo.body)
+            Text(text = description, color = Theme.colors.ink3, fontSize = 11.sp, fontFamily = Theme.typo.bodyLg.fontFamily)
         }
         AppIcon(
             name = IconName.ChevronRight,
@@ -312,9 +312,9 @@ private fun ReadonlyRow(label: String, value: String) {
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = label, color = Theme.colors.ink, fontSize = 13.sp, fontWeight = FontWeight.W500, fontFamily = Theme.typo.body)
+        Text(text = label, color = Theme.colors.ink, fontSize = 13.sp, fontWeight = FontWeight.W500, fontFamily = Theme.typo.bodyLg.fontFamily)
         Spacer(modifier = Modifier.weight(1f))
-        Text(text = value, color = Theme.colors.ink3, fontSize = 12.sp, fontFamily = Theme.typo.body)
+        Text(text = value, color = Theme.colors.ink3, fontSize = 12.sp, fontFamily = Theme.typo.bodyLg.fontFamily)
     }
 }
 

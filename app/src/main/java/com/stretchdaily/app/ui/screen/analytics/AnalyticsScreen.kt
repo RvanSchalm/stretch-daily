@@ -84,14 +84,14 @@ private fun AnalyticsHeader() {
             color = Theme.colors.ink,
             fontSize = 30.sp,
             fontWeight = FontWeight.W500,
-            fontFamily = Theme.typo.display,
+            fontFamily = Theme.typo.displayLg.fontFamily,
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = "Each chart is one benchmark. The colored strip marks its category.",
             color = Theme.colors.ink2,
             fontSize = 13.sp,
-            fontFamily = Theme.typo.body,
+            fontFamily = Theme.typo.bodyLg.fontFamily,
         )
     }
 }
