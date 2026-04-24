@@ -11,6 +11,7 @@ import com.stretchdaily.app.core.util.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -128,8 +129,21 @@ class BenchmarkRepository @Inject constructor(
             ?: throw IllegalArgumentException("Not a number: $raw")
     }
 
+    /**
+     * Pair of [Benchmark] + how many days until its next benchmark-day
+     * reminder. `daysUntilDue == 0` means "due today or overdue"; values > 0
+     * are forward-looking. Fed to the Dashboard "Next benchmark" KPI card.
+     */
+    data class BenchmarkWithDueDate(
+        val benchmark: Benchmark,
+        val daysUntilDue: Int,
+    )
+
     companion object {
         internal const val STALE_AFTER_DAYS: Long = 30
+
+        /** Per-benchmark cadence for the reminder clock. */
+        internal const val REMIND_EVERY_DAYS: Long = 30
 
         /**
          * Pure-Kotlin nagging logic. Extracted from [isBenchmarksDue] so it can
@@ -143,12 +157,71 @@ class BenchmarkRepository @Inject constructor(
             if (lastLoggedAt == null) return true
             val today = LocalDate.ofInstant(Instant.ofEpochMilli(now), zoneId)
             val lastDate = LocalDate.ofInstant(Instant.ofEpochMilli(lastLoggedAt), zoneId)
-            val daysSince = java.time.temporal.ChronoUnit.DAYS.between(lastDate, today)
+            val daysSince = ChronoUnit.DAYS.between(lastDate, today)
             if (daysSince > STALE_AFTER_DAYS) return true
             // 1st-of-month nudge: if today is the 1st and the user hasn't
             // logged today yet, remind them to recheck their baselines.
             if (today.dayOfMonth == 1 && lastDate != today) return true
             return false
+        }
+
+        /**
+         * Returns the subset of [benchmarks] whose latest log is before the
+         * start of the current month (or which have never been logged).
+         * "Month-start" is derived from [now] in [zoneId].
+         */
+        internal fun computeOverdueBenchmarks(
+            benchmarks: List<Benchmark>,
+            latestLogs: List<BenchmarkLog>,
+            now: Long,
+            zoneId: ZoneId = ZoneId.systemDefault(),
+        ): List<Benchmark> {
+            val today = LocalDate.ofInstant(Instant.ofEpochMilli(now), zoneId)
+            val monthStart = today.withDayOfMonth(1)
+            val lastLoggedByBenchmark = latestLogs.associateBy { it.benchmarkId }
+            return benchmarks.filter { benchmark ->
+                val log = lastLoggedByBenchmark[benchmark.id]
+                log == null || run {
+                    val loggedDate = LocalDate.ofInstant(
+                        Instant.ofEpochMilli(log.loggedAt),
+                        zoneId,
+                    )
+                    loggedDate.isBefore(monthStart)
+                }
+            }
+        }
+
+        /**
+         * Returns the benchmark with the nearest upcoming reminder, or `null`
+         * if the catalog is empty. A never-logged benchmark counts as
+         * `daysUntilDue = 0` (overdue today). Ties break on `benchmark.id`
+         * lex order so the result is deterministic.
+         */
+        internal fun computeNextDue(
+            benchmarks: List<Benchmark>,
+            latestLogs: List<BenchmarkLog>,
+            now: Long,
+            zoneId: ZoneId = ZoneId.systemDefault(),
+        ): BenchmarkWithDueDate? {
+            if (benchmarks.isEmpty()) return null
+            val today = LocalDate.ofInstant(Instant.ofEpochMilli(now), zoneId)
+            val lastLoggedByBenchmark = latestLogs.associateBy { it.benchmarkId }
+            return benchmarks
+                .map { benchmark ->
+                    val log = lastLoggedByBenchmark[benchmark.id]
+                    val due = if (log == null) {
+                        today
+                    } else {
+                        LocalDate.ofInstant(Instant.ofEpochMilli(log.loggedAt), zoneId)
+                            .plusDays(REMIND_EVERY_DAYS)
+                    }
+                    val daysUntil = ChronoUnit.DAYS.between(today, due)
+                        .toInt()
+                        .coerceAtLeast(0)
+                    BenchmarkWithDueDate(benchmark, daysUntil)
+                }
+                .sortedWith(compareBy({ it.daysUntilDue }, { it.benchmark.id }))
+                .first()
         }
     }
 }
