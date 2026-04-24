@@ -1,15 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.StretchDaily" parent="android:Theme.Material.NoActionBar">
-        <item name="android:statusBarColor">#0D0D0D</item>
-        <item name="android:navigationBarColor">#0D0D0D</item>
-        <item name="android:windowBackground">#0D0D0D</item>
+    <!--
+        Runtime theme. Cream background (Sage) + the existing launcher
+        foreground kept for the splash. Icon adaptive background is
+        updated in R6 to sage green (#5c7a4a) + cream figure.
+    -->
+    <style name="Theme.StretchDaily" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#FBF8F0</item>
+        <item name="android:navigationBarColor">#FBF8F0</item>
+        <item name="android:windowBackground">#FBF8F0</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 
     <style name="Theme.StretchDaily.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#0D0D0D</item>
+        <item name="windowSplashScreenBackground">#FBF8F0</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
-        <item name="windowSplashScreenIconBackgroundColor">#0D0D0D</item>
+        <item name="windowSplashScreenIconBackgroundColor">#FBF8F0</item>
         <item name="postSplashScreenTheme">@style/Theme.StretchDaily</item>
     </style>
 </resources>
