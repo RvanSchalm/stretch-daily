@@ -29,6 +29,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.stretchdaily.app.ui.screen.dashboard.DashboardScreen
 import com.stretchdaily.app.ui.screen.placeholder.PlaceholderScreen
+import com.stretchdaily.app.ui.screen.session.SessionOverviewScreen
 import com.stretchdaily.app.ui.theme.Theme
 import java.util.Locale
 
@@ -118,7 +119,7 @@ fun StretchDailyNavHost(navController: NavHostController = rememberNavController
                     contentPadding = padding,
                 )
             }
-            sessionGraph(padding)
+            sessionGraph(padding, navController)
             composable(Routes.LOG) {
                 PlaceholderScreen(
                     tabLabel = "Log",
@@ -209,12 +210,14 @@ private fun NavHostController.navigateToTab(route: String) {
  * screens; the graph structure (nested routes, parentEntry-scoped VM)
  * already matches the final shape.
  */
-private fun androidx.navigation.NavGraphBuilder.sessionGraph(contentPadding: PaddingValues) {
+private fun androidx.navigation.NavGraphBuilder.sessionGraph(
+    contentPadding: PaddingValues,
+    navController: NavHostController,
+) {
     navigation(startDestination = Routes.SESSION_OVERVIEW, route = Routes.SESSION_GRAPH) {
         composable(Routes.SESSION_OVERVIEW) {
-            PlaceholderScreen(
-                tabLabel = "Session overview",
-                unlocksInPhase = "R4",
+            SessionOverviewScreen(
+                onBeginSession = { navController.navigate(Routes.SESSION_PLAYER) },
                 contentPadding = contentPadding,
             )
         }
