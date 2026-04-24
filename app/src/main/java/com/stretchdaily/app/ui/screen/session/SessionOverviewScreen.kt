@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.stretchdaily.app.core.engine.model.PlannedExercise
@@ -55,7 +58,7 @@ fun SessionOverviewScreen(
 
     Box(modifier = modifier.fillMaxSize().background(Theme.colors.bg)) {
         LazyColumn(
-            contentPadding = Theme.dims.padScreen,
+            contentPadding = mergePadding(Theme.dims.padScreen, contentPadding),
             verticalArrangement = Arrangement.spacedBy(Theme.dims.gapSection),
         ) {
             item {
@@ -98,8 +101,6 @@ fun SessionOverviewScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            // Spacer the height of the bottom-nav inset so the CTA isn't pinned under it.
-            item { Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding())) }
         }
 
         // Swap sheet — Sheet has no `visible` param in this codebase, so we
@@ -195,9 +196,7 @@ private fun SwapSheetContent(
     onSelect: (String) -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         MonoCaps(
@@ -246,3 +245,11 @@ private fun candidateSubtitle(ex: Exercise): String = when {
     ex.targetReps != null -> "${ex.targetReps} reps" + if (ex.isUnilateral) " · L/R" else ""
     else -> "${ex.totalTime}s"
 }
+
+private fun mergePadding(inner: PaddingValues, outer: PaddingValues): PaddingValues =
+    PaddingValues(
+        start = inner.calculateStartPadding(LayoutDirection.Ltr),
+        end = inner.calculateEndPadding(LayoutDirection.Ltr),
+        top = maxOf(inner.calculateTopPadding(), outer.calculateTopPadding()),
+        bottom = maxOf(inner.calculateBottomPadding(), outer.calculateBottomPadding()),
+    )
