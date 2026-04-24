@@ -28,6 +28,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.stretchdaily.app.ui.screen.analytics.AnalyticsScreen
 import com.stretchdaily.app.ui.screen.carousel.BenchmarkCarouselScreen
 import com.stretchdaily.app.ui.screen.dashboard.DashboardScreen
 import com.stretchdaily.app.ui.screen.log.BenchmarkLogScreen
@@ -132,11 +133,7 @@ fun StretchDailyNavHost(navController: NavHostController = rememberNavController
                 )
             }
             composable(Routes.PROGRESS) {
-                PlaceholderScreen(
-                    tabLabel = "Progress",
-                    unlocksInPhase = "R6",
-                    contentPadding = padding,
-                )
+                AnalyticsScreen(contentPadding = padding)
             }
             composable(Routes.SETTINGS) {
                 PlaceholderScreen(
