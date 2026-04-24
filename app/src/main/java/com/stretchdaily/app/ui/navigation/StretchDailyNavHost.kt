@@ -36,6 +36,7 @@ import com.stretchdaily.app.ui.screen.placeholder.PlaceholderScreen
 import com.stretchdaily.app.ui.screen.session.SessionCompleteScreen
 import com.stretchdaily.app.ui.screen.session.SessionOverviewScreen
 import com.stretchdaily.app.ui.screen.session.SessionPlayerScreen
+import com.stretchdaily.app.ui.screen.settings.SettingsScreen
 import com.stretchdaily.app.ui.theme.Theme
 import java.util.Locale
 
@@ -136,12 +137,7 @@ fun StretchDailyNavHost(navController: NavHostController = rememberNavController
                 AnalyticsScreen(contentPadding = padding)
             }
             composable(Routes.SETTINGS) {
-                PlaceholderScreen(
-                    tabLabel = "Settings",
-                    unlocksInPhase = "R6",
-                    contentPadding = padding,
-                    onLongPress = { navController.navigate(Routes.DEBUG_GALLERY) },
-                )
+                SettingsScreen(contentPadding = padding)
             }
             carouselGraph(navController)
             composable(Routes.DEBUG_GALLERY) {
