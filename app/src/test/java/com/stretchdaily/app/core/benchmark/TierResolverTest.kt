@@ -39,9 +39,14 @@ class TierResolverTest {
 
     @Test
     fun `wrist extension and flexion use different breakpoints`() {
-        // Extension: 60/70/80/90. Flexion: 65/75/85/95.
-        assertEquals(FlexibilityTier.BELOW_AVERAGE, resolver.resolve("BM_WRIST_EXTENSION", 65.0))
-        assertEquals(FlexibilityTier.STIFF, resolver.resolve("BM_WRIST_FLEXION", 65.0))
+        // Extension: 60/70/80/90. Flexion: 65/75/85/95. Picked 64° — past
+        // extension's first breakpoint (60) but still below flexion's (65) —
+        // so the same reading resolves to a more forgiving tier on extension
+        // than on flexion. Avoids landing exactly on a breakpoint, where the
+        // strict-`<` convention (see "ascending breakpoint values fall into
+        // the higher-flex tier") would swallow the intended comparison.
+        assertEquals(FlexibilityTier.BELOW_AVERAGE, resolver.resolve("BM_WRIST_EXTENSION", 64.0))
+        assertEquals(FlexibilityTier.STIFF, resolver.resolve("BM_WRIST_FLEXION", 64.0))
     }
 
     // --- Descending benchmarks ---
