@@ -150,16 +150,22 @@ class SessionPlayerViewModel @Inject constructor(
 
     private fun finish(plan: SessionPlan) {
         timerJob?.cancel()
+        // Flip state synchronously so any in-flight tick() bails before we
+        // kick off the persistence coroutine — prevents duplicate session
+        // records if tick() re-enters finish() before the launch block below
+        // has a chance to write _state.
+        _state.value = SessionPlayerUiState.Complete(
+            areasStretched = plan.items.map { it.exercise.category }.toSet().size,
+            totalMinutes = plan.totalSeconds / 60,
+            streakAfter = 0,
+        )
         viewModelScope.launch {
             audioPlayer.playEnd()
             repository.completeSession(plan, startedAt)
             holder.onSessionCompleted()
             val streak = repository.currentStreakDays()
-            _state.value = SessionPlayerUiState.Complete(
-                areasStretched = plan.items.map { it.exercise.category }.toSet().size,
-                totalMinutes = plan.totalSeconds / 60,
-                streakAfter = streak,
-            )
+            val current = _state.value as? SessionPlayerUiState.Complete ?: return@launch
+            _state.value = current.copy(streakAfter = streak)
         }
     }
 

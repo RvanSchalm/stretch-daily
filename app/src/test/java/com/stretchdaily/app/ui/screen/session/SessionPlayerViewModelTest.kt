@@ -196,6 +196,27 @@ class SessionPlayerViewModelTest {
     }
 
     @Test
+    fun `double-tick at the final exercise does not persist the session twice`() = runTest {
+        val only = item("only", 1)
+        stubHolder(plan(only))
+        coEvery { repository.completeSession(any(), any()) } returns 1L
+        coEvery { repository.currentStreakDays() } returns 4
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        // First tick: 1 → 0 → finish. Second tick: would re-enter finish()
+        // if state were still Running — it isn't, because finish flips
+        // to Complete synchronously.
+        vm.tick()
+        vm.tick()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.completeSession(any(), any()) }
+        coVerify(exactly = 1) { holder.onSessionCompleted() }
+        assertTrue(vm.state.value is SessionPlayerUiState.Complete)
+    }
+
+    @Test
     fun `areasStretched counts distinct categories`() = runTest {
         val hipsOne = item("H01", 1)
         val hipsTwo = PlannedExercise(
