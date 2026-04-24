@@ -87,7 +87,7 @@ class BenchmarkLogViewModelTest {
         BenchmarkLogViewModel(repo, clock)
 
     @Test
-    fun `initial state is loading`() = runTest {
+    fun `initial state is loading`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns MutableStateFlow(emptyList())
         coEvery { repo.observeLatestLogs() } returns MutableStateFlow(emptyList())
         coEvery { repo.observeLogsFor(any()) } returns MutableStateFlow(emptyList())
@@ -97,7 +97,7 @@ class BenchmarkLogViewModelTest {
     }
 
     @Test
-    fun `rows group by category in enum order`() = runTest {
+    fun `rows group by category in enum order`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns flowOf(listOf(atgSquat, sitReach))
         coEvery { repo.observeLatestLogs() } returns flowOf(emptyList())
         coEvery { repo.observeLogsFor(any()) } returns flowOf(emptyList())
@@ -111,7 +111,7 @@ class BenchmarkLogViewModelTest {
     }
 
     @Test
-    fun `row exposes latest log and sparkline values in window`() = runTest {
+    fun `row exposes latest log and sparkline values in window`() = runTest(testDispatcher) {
         val older = log(1, sitReach.id, FlexibilityTier.STIFF, daysAgo = 90)
         val recent = log(2, sitReach.id, FlexibilityTier.AVERAGE, daysAgo = 20)
         coEvery { repo.observeAllBenchmarks() } returns flowOf(listOf(sitReach))
@@ -129,7 +129,7 @@ class BenchmarkLogViewModelTest {
     }
 
     @Test
-    fun `overdue flag is true when latest log predates this calendar month`() = runTest {
+    fun `overdue flag is true when latest log predates this calendar month`() = runTest(testDispatcher) {
         // today is June 15, 2026. A log from May 20 → predates June → overdue.
         val lastMonthLog = log(5, sitReach.id, FlexibilityTier.AVERAGE, daysAgo = 26)
         coEvery { repo.observeAllBenchmarks() } returns flowOf(listOf(sitReach))
@@ -143,7 +143,7 @@ class BenchmarkLogViewModelTest {
     }
 
     @Test
-    fun `overdue flag is false when a log exists this calendar month`() = runTest {
+    fun `overdue flag is false when a log exists this calendar month`() = runTest(testDispatcher) {
         val thisMonthLog = log(6, sitReach.id, FlexibilityTier.AVERAGE, daysAgo = 3)
         coEvery { repo.observeAllBenchmarks() } returns flowOf(listOf(sitReach))
         coEvery { repo.observeLatestLogs() } returns flowOf(listOf(thisMonthLog))
@@ -156,7 +156,7 @@ class BenchmarkLogViewModelTest {
     }
 
     @Test
-    fun `overdue flag is true when user has never logged`() = runTest {
+    fun `overdue flag is true when user has never logged`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns flowOf(listOf(sitReach))
         coEvery { repo.observeLatestLogs() } returns flowOf(emptyList())
         coEvery { repo.observeLogsFor(sitReach.id) } returns flowOf(emptyList())
@@ -170,7 +170,7 @@ class BenchmarkLogViewModelTest {
     }
 
     @Test
-    fun `onRowTapped toggles expansion`() = runTest {
+    fun `onRowTapped toggles expansion`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns flowOf(listOf(sitReach))
         coEvery { repo.observeLatestLogs() } returns flowOf(emptyList())
         coEvery { repo.observeLogsFor(any()) } returns flowOf(emptyList())
@@ -185,7 +185,7 @@ class BenchmarkLogViewModelTest {
     }
 
     @Test
-    fun `onLogPressed then onDismissSheet flips the sheet visibility`() = runTest {
+    fun `onLogPressed then onDismissSheet flips the sheet visibility`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns flowOf(listOf(sitReach))
         coEvery { repo.observeLatestLogs() } returns flowOf(emptyList())
         coEvery { repo.observeLogsFor(any()) } returns flowOf(emptyList())
@@ -202,7 +202,7 @@ class BenchmarkLogViewModelTest {
     }
 
     @Test
-    fun `onSubmit numeric calls repository logNumeric then closes sheet`() = runTest {
+    fun `onSubmit numeric calls repository logNumeric then closes sheet`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns flowOf(listOf(sitReach))
         coEvery { repo.observeLatestLogs() } returns flowOf(emptyList())
         coEvery { repo.observeLogsFor(any()) } returns flowOf(emptyList())
@@ -220,7 +220,7 @@ class BenchmarkLogViewModelTest {
     }
 
     @Test
-    fun `onSubmit categorical calls repository logCategorical`() = runTest {
+    fun `onSubmit categorical calls repository logCategorical`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns flowOf(listOf(atgSquat))
         coEvery { repo.observeLatestLogs() } returns flowOf(emptyList())
         coEvery { repo.observeLogsFor(any()) } returns flowOf(emptyList())
@@ -237,7 +237,7 @@ class BenchmarkLogViewModelTest {
     }
 
     @Test
-    fun `numeric submit surfacing parse failure sets error message and keeps sheet open`() = runTest {
+    fun `numeric submit surfacing parse failure sets error message and keeps sheet open`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns flowOf(listOf(sitReach))
         coEvery { repo.observeLatestLogs() } returns flowOf(emptyList())
         coEvery { repo.observeLogsFor(any()) } returns flowOf(emptyList())
@@ -255,7 +255,7 @@ class BenchmarkLogViewModelTest {
     }
 
     @Test
-    fun `onDeleteLog delegates to repository`() = runTest {
+    fun `onDeleteLog delegates to repository`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns flowOf(listOf(sitReach))
         coEvery { repo.observeLatestLogs() } returns flowOf(emptyList())
         coEvery { repo.observeLogsFor(any()) } returns flowOf(emptyList())

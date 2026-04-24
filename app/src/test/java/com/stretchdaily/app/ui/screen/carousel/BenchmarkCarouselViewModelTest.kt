@@ -57,7 +57,7 @@ class BenchmarkCarouselViewModelTest {
         BenchmarkCarouselViewModel(repo)
 
     @Test
-    fun `init loads all benchmarks`() = runTest {
+    fun `init loads all benchmarks`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns flowOf(ten)
         val vm = viewModel()
         advanceUntilIdle()
@@ -70,7 +70,7 @@ class BenchmarkCarouselViewModelTest {
     }
 
     @Test
-    fun `setStep moves currentIndex`() = runTest {
+    fun `setStep moves currentIndex`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns flowOf(ten)
         val vm = viewModel()
         advanceUntilIdle()
@@ -81,7 +81,7 @@ class BenchmarkCarouselViewModelTest {
     }
 
     @Test
-    fun `setStep clamps negative or past-end values`() = runTest {
+    fun `setStep clamps negative or past-end values`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns flowOf(ten)
         val vm = viewModel()
         advanceUntilIdle()
@@ -93,7 +93,7 @@ class BenchmarkCarouselViewModelTest {
     }
 
     @Test
-    fun `onSaveEntry numeric advances step`() = runTest {
+    fun `onSaveEntry numeric advances step`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns flowOf(ten)
         coEvery { repo.logNumeric(any(), any()) } returns Result.success(1L)
         val vm = viewModel()
@@ -111,7 +111,7 @@ class BenchmarkCarouselViewModelTest {
     }
 
     @Test
-    fun `onSaveEntry categorical advances step and calls logCategorical`() = runTest {
+    fun `onSaveEntry categorical advances step and calls logCategorical`() = runTest(testDispatcher) {
         val carousel = listOf(bm("CAT_1", BenchmarkInputType.CATEGORICAL)) + ten
         coEvery { repo.observeAllBenchmarks() } returns flowOf(carousel)
         coEvery { repo.logCategorical(any(), any()) } returns 7L
@@ -130,7 +130,7 @@ class BenchmarkCarouselViewModelTest {
     }
 
     @Test
-    fun `onSaveEntry on last step fires Finished`() = runTest {
+    fun `onSaveEntry on last step fires Finished`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns flowOf(ten)
         coEvery { repo.logNumeric(any(), any()) } returns Result.success(1L)
         val vm = viewModel()
@@ -149,7 +149,7 @@ class BenchmarkCarouselViewModelTest {
     }
 
     @Test
-    fun `onSaveEntry parse failure sets errorMessage and does NOT advance`() = runTest {
+    fun `onSaveEntry parse failure sets errorMessage and does NOT advance`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns flowOf(ten)
         coEvery { repo.logNumeric(any(), any()) } returns
             Result.failure(IllegalArgumentException("Not a number: oops"))
@@ -169,7 +169,7 @@ class BenchmarkCarouselViewModelTest {
     }
 
     @Test
-    fun `onClose emits Finished`() = runTest {
+    fun `onClose emits Finished`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns flowOf(ten)
         val vm = viewModel()
         advanceUntilIdle()
@@ -185,7 +185,7 @@ class BenchmarkCarouselViewModelTest {
     }
 
     @Test
-    fun `dismissError clears errorMessage without changing index`() = runTest {
+    fun `dismissError clears errorMessage without changing index`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns flowOf(ten)
         coEvery { repo.logNumeric(any(), any()) } returns
             Result.failure(IllegalArgumentException("Not a number: oops"))
