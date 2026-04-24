@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -57,9 +58,12 @@ import java.util.Locale
  *  - "THIS WEEK" label + [WeekStrip].
  *  - "SNAPSHOT" label + 2×2 [KpiCard] grid.
  *
- * `contentPadding` is the bottom-nav offset passed by the outer [Scaffold].
- * [Theme.dims.padScreen] already bakes in a 100.dp bottom to clear the nav;
- * we take the max on each axis so the two insets don't double-count.
+ * The outer Scaffold declares `contentWindowInsets = WindowInsets(0)`, so
+ * each tab owns its system-bar insets. The LazyColumn applies
+ * `statusBarsPadding()` on the outside to clear the system clock strip, then
+ * [mergePadding] combines [Theme.dims.padScreen] (which bakes in the 100.dp
+ * bottom-nav clearance) with the Scaffold's measured bottom-bar inset via
+ * `maxOf` on each axis — so the two bottom contributions don't double-count.
  */
 @Composable
 fun DashboardScreen(
@@ -74,7 +78,13 @@ fun DashboardScreen(
     LazyColumn(
         modifier = modifier
             .fillMaxWidth()
-            .background(Theme.colors.bg),
+            .background(Theme.colors.bg)
+            // The outer Scaffold uses `contentWindowInsets = WindowInsets(0)`
+            // (edge-to-edge convention per R1), so each screen consumes its
+            // own status-bar inset. `statusBarsPadding()` shifts the LazyColumn
+            // below the system clock/battery strip; `padScreen.top` (6.dp) then
+            // adds the extra breathing room above the first item.
+            .statusBarsPadding(),
         contentPadding = mergePadding(Theme.dims.padScreen, contentPadding),
         verticalArrangement = Arrangement.spacedBy(Theme.dims.gapSection),
     ) {

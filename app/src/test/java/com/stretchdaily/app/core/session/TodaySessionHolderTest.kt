@@ -152,7 +152,7 @@ class TodaySessionHolderTest {
     }
 
     @Test
-    fun `onSessionCompleted is a no-op; same-day access returns the same plan`() = runTest {
+    fun `onSessionCompleted is a no-op and same-day access returns the same plan`() = runTest {
         val engine = mockk<LongevityEngine>()
         var callCount = 0
         coEvery { engine.generateSession() } answers {
