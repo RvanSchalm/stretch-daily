@@ -127,6 +127,12 @@ class SessionPlayerViewModelTest {
         val r = vm.state.value as SessionPlayerUiState.Running
         assertEquals(5, r.remainingSeconds)
         assertTrue(r.isPaused)
+
+        // runTest reuses Main's TestScheduler, so its end-of-test drain
+        // advances the VM's 1 Hz timer. If we leave the VM paused, every
+        // tick is a no-op and the drain loops forever. Resume so the timer
+        // walks the 5s session to finish() and cancels the loop.
+        vm.togglePause()
     }
 
     @Test
