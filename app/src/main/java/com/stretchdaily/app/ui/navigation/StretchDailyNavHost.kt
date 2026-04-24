@@ -29,6 +29,7 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.stretchdaily.app.ui.screen.dashboard.DashboardScreen
+import com.stretchdaily.app.ui.screen.log.BenchmarkLogScreen
 import com.stretchdaily.app.ui.screen.placeholder.PlaceholderScreen
 import com.stretchdaily.app.ui.screen.session.SessionCompleteScreen
 import com.stretchdaily.app.ui.screen.session.SessionOverviewScreen
@@ -124,9 +125,8 @@ fun StretchDailyNavHost(navController: NavHostController = rememberNavController
             }
             sessionGraph(padding, navController)
             composable(Routes.LOG) {
-                PlaceholderScreen(
-                    tabLabel = "Log",
-                    unlocksInPhase = "R5",
+                BenchmarkLogScreen(
+                    onStartCarousel = { navController.navigate(Routes.carouselStep(0)) },
                     contentPadding = padding,
                 )
             }
