@@ -19,6 +19,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -83,7 +85,9 @@ fun BenchmarkCarouselScreen(
                         fontSize = 30.sp,
                         fontWeight = FontWeight.W500,
                         color = Theme.colors.ink,
-                        modifier = Modifier.padding(top = 14.dp, bottom = 6.dp),
+                        modifier = Modifier
+                            .padding(top = 14.dp, bottom = 6.dp)
+                            .semantics { heading() },
                     )
                     if (bm.description.isNotBlank()) {
                         Text(

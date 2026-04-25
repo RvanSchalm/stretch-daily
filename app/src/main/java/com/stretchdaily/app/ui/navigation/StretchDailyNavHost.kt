@@ -28,6 +28,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.stretchdaily.app.ui.screen.analytics.AnalyticsScreen
 import com.stretchdaily.app.ui.screen.carousel.BenchmarkCarouselScreen
 import com.stretchdaily.app.ui.screen.dashboard.DashboardScreen
 import com.stretchdaily.app.ui.screen.log.BenchmarkLogScreen
@@ -35,6 +36,7 @@ import com.stretchdaily.app.ui.screen.placeholder.PlaceholderScreen
 import com.stretchdaily.app.ui.screen.session.SessionCompleteScreen
 import com.stretchdaily.app.ui.screen.session.SessionOverviewScreen
 import com.stretchdaily.app.ui.screen.session.SessionPlayerScreen
+import com.stretchdaily.app.ui.screen.settings.SettingsScreen
 import com.stretchdaily.app.ui.theme.Theme
 import java.util.Locale
 
@@ -132,19 +134,10 @@ fun StretchDailyNavHost(navController: NavHostController = rememberNavController
                 )
             }
             composable(Routes.PROGRESS) {
-                PlaceholderScreen(
-                    tabLabel = "Progress",
-                    unlocksInPhase = "R6",
-                    contentPadding = padding,
-                )
+                AnalyticsScreen(contentPadding = padding)
             }
             composable(Routes.SETTINGS) {
-                PlaceholderScreen(
-                    tabLabel = "Settings",
-                    unlocksInPhase = "R6",
-                    contentPadding = padding,
-                    onLongPress = { navController.navigate(Routes.DEBUG_GALLERY) },
-                )
+                SettingsScreen(contentPadding = padding)
             }
             carouselGraph(navController)
             composable(Routes.DEBUG_GALLERY) {

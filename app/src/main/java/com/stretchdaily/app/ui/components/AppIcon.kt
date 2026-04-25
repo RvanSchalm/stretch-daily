@@ -28,6 +28,10 @@ enum class IconName(@DrawableRes val res: Int) {
     ChevronDown(R.drawable.ic_chevron_down),
     Close(R.drawable.ic_close),
     Check(R.drawable.ic_check),
+    Sound(R.drawable.ic_sound),
+    Download(R.drawable.ic_download),
+    Upload(R.drawable.ic_upload),
+    Trash(R.drawable.ic_trash),
 }
 
 /**

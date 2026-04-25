@@ -4,35 +4,30 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Person doing a stretch / lunge pose, centered in the safe zone (24-84) -->
-    <!-- Head -->
+    <!-- Same paths as ic_launcher_foreground, tinted sage for cream-bg splash -->
     <path
-        android:fillColor="#f5f3ea"
+        android:fillColor="#5c7a4a"
         android:pathData="M54,33 m-4,0 a4,4 0,1 1,8 0 a4,4 0,1 1,-8 0" />
-    <!-- Torso -->
     <path
-        android:strokeColor="#f5f3ea"
+        android:strokeColor="#5c7a4a"
         android:strokeWidth="3"
         android:strokeLineCap="round"
         android:fillColor="#00000000"
         android:pathData="M54,37 L54,56" />
-    <!-- Arms stretched wide -->
     <path
-        android:strokeColor="#f5f3ea"
+        android:strokeColor="#5c7a4a"
         android:strokeWidth="3"
         android:strokeLineCap="round"
         android:fillColor="#00000000"
         android:pathData="M38,42 L54,45 L70,38" />
-    <!-- Left leg (lunging forward) -->
     <path
-        android:strokeColor="#f5f3ea"
+        android:strokeColor="#5c7a4a"
         android:strokeWidth="3"
         android:strokeLineCap="round"
         android:fillColor="#00000000"
         android:pathData="M54,56 L42,70 L38,75" />
-    <!-- Right leg (extended back) -->
     <path
-        android:strokeColor="#f5f3ea"
+        android:strokeColor="#5c7a4a"
         android:strokeWidth="3"
         android:strokeLineCap="round"
         android:fillColor="#00000000"

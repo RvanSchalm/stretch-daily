@@ -22,63 +22,68 @@ areas where the user's monthly benchmarks indicate the most stiffness.
 
 ## 2. Current state
 
-**Last updated**: 2026-04-10 (end of Phase 8 session)
-**Active branch**: `chore/release-prep` (PR target is `development`)
+**Last updated**: 2026-04-25 (end of Sage redesign R6 session)
+**Active branch**: `redesign/r6-analytics-settings-polish`
+(PR [#15](https://github.com/RvanSchalm/stretch-daily/pull/15) → `development`)
 
-**Just completed**: Phase 8 — Release prep
-- **Splash screen**: Wired the AndroidX SplashScreen API
-  (`core-splashscreen 1.0.1`). The activity theme starts as
-  `Theme.StretchDaily.Splash` (dark background + launcher icon), then
-  `installSplashScreen()` in `MainActivity.onCreate()` transitions to
-  the regular theme. Works on Android 12+ natively and polyfills back
-  to API 23 via the compat library.
-- **App icon**: Replaced the placeholder plus sign with a stretching
-  figure silhouette in the `#FF8C00` orange accent, drawn as a vector
-  adaptive icon foreground over the `#0D0D0D` dark background.
-- **Audio cues**: Two placeholder WAV files (`chime_start.wav`,
-  `chime_end.wav`) generated as short sine-wave tones.
-  `core/audio/SessionAudioPlayer.kt` is a `@Singleton` wrapping
-  `SoundPool` — eagerly loads both sounds, checks
-  `SettingsDataStore.audioCuesEnabled` (via `Flow.first()`) before
-  every play call. `SessionViewModel` fires `playStart()` when the
-  session begins and on every exercise transition, `playEnd()` when
-  the session finishes. The existing audio toggle in Settings now
-  controls real playback.
-- **R8 minification**: Enabled `isMinifyEnabled = true` and
-  `isShrinkResources = true` on the release build type. ProGuard keep
-  rules added for kotlinx.serialization (`$$serializer`, `Companion`,
-  `serializer()`), Room entities, Hilt/Dagger generated components,
-  and Compose lambdas.
-- **Release signing**: `app/build.gradle.kts` reads a
-  `keystore.properties` file (gitignored) when present and configures
-  `signingConfigs.release` from it. Missing file = no signing config =
-  debug signing only, so debug builds and CI are unaffected. To sign a
-  release, create `keystore.properties` at the project root with
-  `storeFile`, `storePassword`, `keyAlias`, `keyPassword`.
-- **Accessibility**: Replaced every `contentDescription = null` on
-  interactive `Icon` composables across all screens with meaningful
-  labels: Pause/Resume, Skip, Swap exercise, Benchmarks due,
-  Session complete, Rotation shield, Open (settings row arrow).
-- **Bug fix (Phase 7 follow-up)**: Made the benchmarks tab reactive
-  to database wipes. Added `observeLatestPerBenchmark()` Flow query
-  to `BenchmarkLogDao`, exposed reactive methods from
-  `BenchmarkRepository`, refactored `BenchmarksViewModel` from
-  one-shot `refresh()` to `combine(...).stateIn(Eagerly)`. New test
-  `state recomputes when latest logs flow emits a new value` directly
-  covers the delete-all scenario.
+**Just completed**: Sage redesign R6 — Analytics + Settings + icon/splash
+polish. Final phase of the 6-part redesign that began with R1
+(tokens + scaffold) on 2026-04-23.
 
-**Deferred items**: End-to-end instrumented tests and exercise
-placeholder drawables are left for a future iteration — the app has
-no exercise images in the data model yet, and instrumented tests
-require a connected device which can't be verified in Claude Code.
+- **Analytics tab** (`ui/screen/analytics/`): per-benchmark `BigChart`
+  cards with category-tint top strip, latest raw value, 6-month delta
+  chip, and a "All / category" filter row. Two new pure-Kotlin helpers
+  power it: `core/benchmark/BenchmarkBetter.kt` (direction lookup —
+  ASCENDING / DESCENDING / categorical) and
+  `core/benchmark/BenchmarkDelta.kt` (6-month nearest-date delta math).
+- **Settings tab** (`ui/screen/settings/`): grouped Preferences /
+  Your data / Library layout. Audio cue toggle + new
+  `benchmarkBannerEnabled` toggle, both backed by `SettingsDataStore`.
+  Library group reactively shows live exercise / category / benchmark /
+  session counts via `combine(...).stateIn(Eagerly)`. Export / import /
+  delete-all unchanged from the Phase 7 `DataPortRepository`.
+- **Launcher icon + splash**: Repainted the figure from
+  `#FF8C00`/`#0D0D0D` (legacy orange + dark) to `#5c7a4a`/`#f5f3ea`
+  (sage + cream). Splash uses a dedicated `ic_splash_foreground`
+  drawable so the AndroidX SplashScreen API renders the figure on the
+  cream background.
+- **Accessibility audit (cross-screen)**: every redesigned screen's
+  hero title now applies `Modifier.semantics { heading() }` —
+  Dashboard, Session overview, Session complete, Benchmark log,
+  Benchmark carousel, Analytics, Settings.
+- **R8 keep-rules**: reviewed; the legacy Phase 8 keep-rules cover
+  every R6 type already (no new `@Serializable` classes outside
+  `ExportPayload`, no new Hilt-generated components, no new Room
+  entities). No edits required.
 
-**Next up**: All 8 planned phases are complete. The app is
-feature-complete for v0.1.0. Remaining work for a production release:
-1. Replace placeholder audio files with real chime samples.
-2. Add exercise illustration assets (WebP/Lottie) and wire via Coil.
-3. Create a release keystore and sign an AAB.
+**In-session compile fixes**: `Theme.typo.display` / `Theme.typo.body`
+references in the plan were wrong — `AppTypography` exposes
+`displayLg/Md/Xl` and `bodyLg/Md/Sm` `TextStyle`s; corrected via
+`.fontFamily` accessor on the existing styles.
+`AnalyticsViewModel`'s `ZoneId` constructor parameter needed an
+explicit `@Provides` binding in `EngineModule` (Hilt ignores Kotlin
+default values). Test sources used a non-existent `Category.HAMSTRINGS`
+(swapped to `HIPS`) and `UnconfinedTestDispatcher` as a *type*
+(it's a factory function — type annotation must be `TestDispatcher`).
+Status-bar overlap on Analytics + Settings tabs fixed by adding
+`.statusBarsPadding()` to the root LazyColumn / Column, matching the
+Dashboard pattern (the outer Scaffold uses `contentWindowInsets =
+WindowInsets(0)` so each tab owns its top inset).
+
+**Pending before merge**:
+- Task 14 — pixel QA matrix vs.
+  `docs/design_handoff_stretch_daily_v3/reference/index.html`.
+  Ramon-led, requires emulator + browser side-by-side.
+- Task 15 — 15-step end-to-end smoke test (install → session → log →
+  carousel → export → delete → import → orientation). Ramon-led.
+
+**Next up**: After PR #15 lands on `development`, the Sage redesign
+is complete. Post-redesign follow-ups (none of which are scoped now):
+1. Real chime samples replacing the sine-wave placeholders.
+2. Exercise illustration assets (WebP/Lottie) wired via Coil.
+3. Release keystore + signed AAB.
 4. Instrumented tests on a real device/emulator.
-5. Play Store listing and metadata.
+5. Play Store listing + metadata.
 
 **Known issues**:
 - **Gradle CLI build blocked on this Windows machine — no JDK-side fix
@@ -131,109 +136,154 @@ feature-complete for v0.1.0. Remaining work for a production release:
     retrying gradle CLI workarounds. Either ask Ramon to build from Android
     Studio and report back, or restrict verification to manual code review
     and tell Ramon that compilation is unverified.
-- Phase 1 code has been compiled successfully via **Android Studio
-  (Build → Make Project)** on 2026-04-07. Gradle CLI verification is still
-  blocked by the issue above; Android Studio remains the verification path
-  going forward.
+- All R1–R6 code compiled successfully via **Android Studio
+  (Build → Make Project)** during the redesign sessions. Gradle CLI
+  verification is still blocked by the issue above; Android Studio
+  remains the verification path going forward.
 
 ---
 
 ## 3. Architecture summary
 
 - **MVVM**: ViewModel + StateFlow (no LiveData). UI is 100% Compose.
-- **DI**: Hilt. `SingletonComponent` modules so far: `DatabaseModule`
-  (database, DAOs, ApplicationScope), `EngineModule` (Clock binding). All
-  engine, repository, and ViewModel classes use `@Inject constructor` and
-  don't need explicit `@Provides`. ViewModels are `@HiltViewModel`.
+- **DI**: Hilt. `SingletonComponent` modules: `DatabaseModule`
+  (database, DAOs, ApplicationScope), `EngineModule` (Clock + ZoneId
+  bindings), `SessionModule`. All engine, repository, holder, and
+  ViewModel classes use `@Inject constructor`. ViewModels are
+  `@HiltViewModel`. **Hilt does not honour Kotlin default values** —
+  any constructor parameter that isn't another `@Inject`-able type
+  needs an explicit `@Provides`. `EngineModule.provideZoneId()` is
+  the example for `java.time.ZoneId`.
 - **Database**: Room with KSP. Seeded once at file creation via
-  `RoomDatabase.Callback.onCreate` running on `Dispatchers.IO` inside the
-  injected `@ApplicationScope` coroutine scope.
+  `RoomDatabase.Callback.onCreate` running on `Dispatchers.IO` inside
+  the injected `@ApplicationScope` coroutine scope.
 - **Engine**: `core/engine/`. The three components
-  (`CategoryWeightCalculator`, `SelectionShield`, `SessionBuilder`) are pure
-  Kotlin — no Android, no Room, no coroutines — so they're tested via plain
-  JVM JUnit. `LongevityEngine` is the thin Android-aware orchestrator that
-  actually talks to Room and is the only public entry point. Tests inject a
-  fake `Clock` and a seeded `Random` for determinism.
+  (`CategoryWeightCalculator`, `SelectionShield`, `SessionBuilder`)
+  are pure Kotlin — no Android, no Room, no coroutines — so they're
+  tested via plain JVM JUnit. `LongevityEngine` is the thin
+  Android-aware orchestrator that actually talks to Room and is the
+  only public entry point. Tests inject a fake `Clock` and a seeded
+  `Random` for determinism.
+- **Today's session cache**: `core/session/TodaySessionHolder` is the
+  `@Singleton` in-memory cache for today's plan. Regenerates only on
+  calendar-day rollover; user completion does NOT reset it (the user
+  can redo today's session). `Dashboard` and `SessionOverview`
+  ViewModels both observe its `StateFlow<SessionPlan?>` so the swap
+  on the overview screen reflects on the dashboard immediately. Swaps
+  are not persisted — accepted tradeoff.
 - **Repositories**: `data/`. Wrap DAOs so ViewModels never see Room.
-  Pure-logic helpers (e.g. `SessionRepository.computeStreak`) live as
-  `internal` companion functions so they're testable on the JVM without
-  spinning up a database.
-- **Session ViewModel**: One `SessionViewModel` for the entire session
-  flow, scoped to the nested session NavGraph entry via
+  `BenchmarkRepository` exposes Flow-based observers
+  (`observeAllBenchmarks`, `observeLogsFor`,
+  `observeLatestPerBenchmark`) so log mutations propagate live.
+  `SessionRepository` exposes `observeAllSessions` plus pure-logic
+  helpers (`computeStreak`, etc.) as `internal` companion functions
+  testable on the JVM without a database.
+- **Session player**: `SessionPlayerViewModel` is scoped to the
+  nested `SESSION_GRAPH` NavBackStackEntry via
   `hiltViewModel(parentEntry)`. The 1 Hz timer is a `delay`-based
-  coroutine inside `viewModelScope`; the `tick()` function is `internal`
-  so unit tests can drive it without a real dispatcher.
-  `SessionAudioPlayer` (injected) plays start/end chimes gated by the
-  audio-cues preference in DataStore.
+  coroutine inside `viewModelScope`; `tick()` is `internal` so unit
+  tests can drive it without a real dispatcher. `SessionAudioPlayer`
+  (injected) plays start/end chimes gated by the audio-cues
+  preference in DataStore.
 - **Navigation**: Compose Navigation with string routes. The
   `NavHost` lives inside an outer `Scaffold` that owns a Material3
-  `NavigationBar` (Home / Benchmarks / Settings). The outer Scaffold
-  sets `contentWindowInsets = WindowInsets(0)` so the inner screen
-  Scaffolds keep handling status-bar insets themselves — only the
-  bottom-bar height bubbles down via a `contentPadding` parameter
-  that the per-tab screens opt into. Two nested `navigation(...)`
-  graphs: `SESSION_GRAPH` (preview → follow → complete) and
-  `BENCHMARKS_GRAPH` (list → history). Both scope their ViewModel to
-  the graph entry via `hiltViewModel(parentEntry)` so multi-screen
-  state (the running session timer, the log dialog) stays coherent
-  across destinations. The session flow and the session history
-  detail are immersive (no bottom bar) — controlled by the
-  `BOTTOM_NAV_ROUTES` set. Top-level routes are constants in
-  `ui/navigation/StretchDailyNavHost.kt`.
-- **Dashboard**: `HomeViewModel` joins streak math, total/weekly
-  volume, last-session timestamp, benchmarks-due banner, and the
-  engine's `CategoryWeightCalculator` into a single `HomeUiState`
-  pass. `HomeScreen` snaps each fractional category weight to its
-  closest `FlexibilityTier` for display and renders a horizontal
-  weight bar normalized against `STIFF` (3.0). Stiff /
-  below-average rows get the orange border treatment.
-- **Benchmarks pipeline**: `TierResolver` (pure Kotlin, hard-coded
-  per-benchmark breakpoint profiles) → `BenchmarkRepository` (DAO
-  wrapper + CRUD on logs + `isBenchmarksDue` nagging helper) →
-  `BenchmarksViewModel` (list + dialog + history) → three Compose
-  screens sharing one ViewModel via the nested graph. Five benchmarks
-  are ASCENDING (higher = more flexible), four are DESCENDING (lower =
-  more flexible — Apley, Butterfly, Sit and Reach, Thomas), and the one
-  categorical benchmark (ATG Split Squat) is tier-picked directly.
-- **Progress chart**: `BenchmarkProgressBuilder` (pure Kotlin, sibling
-  to `TierResolver`) maps `BenchmarkLog`s to a `ProgressSeries` of
-  normalized `(xRatio, yRatio)` points keyed off the resolved tier.
-  `BenchmarkProgressChart` (Compose Canvas) consumes that series and
-  draws the five tier bands + polyline + dot markers, sized via
-  `Column` weights so the left-gutter labels line up with the band
-  centers. The chart is embedded as the first item of
-  `BenchmarkHistoryScreen`'s LazyColumn — no separate Progress tab.
-- **Settings + data port**: `SettingsDataStore` (Preferences DataStore
-  named `stretch_daily_settings`) holds the audio cues toggle.
-  `DataPortRepository` is the schema-aware orchestrator for
-  export/import/delete-all: it knows the FK order, snapshots all five
-  tables into a versioned `ExportPayload`, and re-seeds the catalog
-  from `DatabaseSeeder` after a wipe so the app stays usable. JSON IO
-  is `kotlinx.serialization` `encodeToStream`/`decodeFromStream` (the
-  Room entities themselves are `@Serializable` — no DTO layer).
-  `SettingsViewModel` exposes a `SettingsStatus` sealed-interface
-  state machine (Idle/Working/Success/Error) that the screen surfaces
-  via a `SnackbarHost` and consumes after each one-shot result.
-  Document picking happens in the screen via SAF
-  `ActivityResultContracts.CreateDocument`/`OpenDocument`; the
-  resulting `Uri`s are passed into the ViewModel, which uses an
-  injected `@ApplicationContext` to open the streams.
+  `NavigationBar` with five tabs (Today / Session / Log / Progress /
+  Settings). The outer Scaffold sets `contentWindowInsets =
+  WindowInsets(0)` so each tab consumes its own status-bar inset
+  via `.statusBarsPadding()` — only the bottom-nav height bubbles
+  down via a `contentPadding` parameter. Two nested `navigation(...)`
+  graphs:
+  - `SESSION_GRAPH` (`session/overview` → `session/player` →
+    `session/complete`) shares one `SessionPlayerViewModel`.
+  - `CAROUSEL_GRAPH` (`carousel/{step}`) shares one
+    `BenchmarkCarouselViewModel` across all 10 steps.
+
+  `session/player`, `session/complete`, and `carousel/{step}` are
+  immersive overlays — bottom nav hidden, controlled by route lists in
+  `StretchDailyNavHost.kt`.
+- **Theme**: Sage palette tokens live in `ui/theme/`:
+  `AppColors` (sageColors() — bg `#fbf8f0`, accent `#5c7a4a`,
+  cream `#f5f3ea`, warn `#a6632a`), `AppTypography`
+  (`displayXl/Lg/Md` + `bodyLg/Md/Sm` + `monoCaps[/Sm]`), `AppDimens`
+  (radii, gaps, `padScreen` with bottom 100.dp baked in for nav
+  clearance), `CategoryTint` (per-category accent stripe colour).
+  Access at call sites via `Theme.colors`, `Theme.typo`, `Theme.dims`.
+- **Component primitives**: `ui/components/` holds the 12 reusable
+  Compose primitives that R2 introduced — `BigChart`, `Sparkline`,
+  `KpiCard`, `MonoCaps`, `Pill`, `BandPill`, `CatChip`,
+  `ExerciseTile`, `Sheet`, `WeekStrip`, `SegmentProgress`,
+  `AppIcon`. Every screen composes from this set; no screen ships its
+  own card / chip / pill drawables.
+- **Dashboard**: `DashboardViewModel` joins date, streak, today's
+  plan (from `TodaySessionHolder`), week-strip data, KPI snapshot,
+  and the benchmark banner state into one `DashboardUiState`. The
+  banner shows only when `SettingsDataStore.benchmarkBannerEnabled`
+  is true *and* `BenchmarkRepository.isBenchmarksDue()` returns
+  overdue rows.
+- **Benchmark log + carousel**: `BenchmarkLogViewModel` powers the
+  Log tab — grouped sections per category, expandable rows showing
+  description / bands / sparkline / history, sheet-based numeric or
+  categorical input. `BenchmarkCarouselViewModel` powers the 10-step
+  carousel reached from the dashboard banner; both write through
+  `BenchmarkRepository`. `core/benchmark/BenchmarkProgressBuilder`
+  produces the per-benchmark sparkline / history series. Five
+  benchmarks are ASCENDING (higher = more flexible), four are
+  DESCENDING (lower = more flexible — Apley, Butterfly, Sit and
+  Reach, Thomas), and the one categorical benchmark (ATG Split Squat)
+  is tier-picked directly. Direction lookup is centralized in
+  `core/benchmark/BenchmarkBetter`.
+- **Analytics (Progress tab)**: `AnalyticsViewModel` fans out one
+  card per benchmark using `combine(repo.observeAllBenchmarks(),
+  flatMap-of-observeLogsFor)`, plus an "All / category" filter.
+  Each card resolves a 6-month delta via
+  `core/benchmark/BenchmarkDelta` (nearest-date raw subtraction +
+  direction-aware `improved` flag), then renders via
+  `BenchmarkAnalyticsCard` (category-tint top strip + eyebrow +
+  name + latest raw value + delta chip + 130dp `BigChart`).
+- **Settings + data port**: `SettingsDataStore` (Preferences
+  DataStore named `stretch_daily_settings`) holds the audio cues
+  and benchmark-banner toggles. `DataPortRepository` is the
+  schema-aware orchestrator for export / import / delete-all: it
+  snapshots all 5 tables in FK order into a versioned
+  `ExportPayload`, then re-seeds the catalog from `DatabaseSeeder`
+  after a wipe. JSON IO is `kotlinx.serialization`
+  `encodeToStream` / `decodeFromStream` — the Room entities
+  themselves are `@Serializable`, no DTO layer. `SettingsViewModel`
+  composes the live state with `combine(...).stateIn(Eagerly)` so
+  toggle flips and library counts both surface immediately. A
+  `SettingsStatus` sealed interface (Idle / Working / Success /
+  Error) drives one-shot snackbar messages. Document picking
+  happens in the screen via SAF
+  `ActivityResultContracts.CreateDocument` / `OpenDocument`; the
+  resulting `Uri`s are passed to the ViewModel, which uses
+  `@ApplicationContext` to open streams.
 
 ---
 
 ## 4. Key conventions
 
 - **Branch model**: `main` (protected) ← PRs ← `development` ← feature
-  branches. One PR per phase. Conventional Commits (`feat:`, `fix:`, `chore:`,
-  `docs:`). Push every commit immediately. See
+  branches. One PR per phase. Conventional Commits (`feat:`, `fix:`,
+  `chore:`, `docs:`). Push every commit immediately. See
   `.claude/skills/git-flow/SKILL.md`.
-- **Theme**: Fixed dark theme. Background `#0D0D0D`, surface `#1A1A1A`,
-  primary/accent `#FF8C00`. No dynamic colors.
-- **No backwards compatibility cruft**: Don't keep dead enum values, unused
-  re-exports, or `// removed` comments. Just delete.
-- **No speculative abstractions**: Inline a few similar lines instead of
-  building an early helper. Add structure when the third use case shows up.
-- **Comments**: Only where the logic isn't self-evident. Don't narrate code.
+- **Theme**: Fixed Sage palette (light, warm cream). Background
+  `#fbf8f0`, surface `#f9f6ec`, accent `#5c7a4a`, accent-ink `#f5f3ea`,
+  warn `#a6632a`. No dynamic colors. Token data classes
+  (`AppColors`/`AppTypography`/`AppDimens`/`CategoryTint`) are
+  data-class shaped so an alternate palette (Grove / Moss / dark)
+  can slot in via `StretchDailyTheme(colors = ...)` later.
+- **Status-bar inset rule**: the outer Scaffold sets
+  `contentWindowInsets = WindowInsets(0)`. Each tab is responsible
+  for its own top inset — apply `.statusBarsPadding()` on the root
+  scrollable. Bottom-nav clearance comes via the `contentPadding`
+  parameter + `padScreen`'s baked-in 100.dp.
+- **No backwards compatibility cruft**: Don't keep dead enum values,
+  unused re-exports, or `// removed` comments. Just delete.
+- **No speculative abstractions**: Inline a few similar lines instead
+  of building an early helper. Add structure when the third use case
+  shows up.
+- **Comments**: Only where the logic isn't self-evident. Don't
+  narrate code.
 
 ---
 
@@ -242,94 +292,107 @@ feature-complete for v0.1.0. Remaining work for a production release:
 ```
 app/src/main/java/com/stretchdaily/app/
 ├── StretchDailyApp.kt              # @HiltAndroidApp Application
-├── MainActivity.kt                 # @AndroidEntryPoint, hosts StretchDailyNavHost
+├── MainActivity.kt                 # @AndroidEntryPoint; hosts StretchDailyNavHost
 ├── core/
-│   ├── model/
-│   │   ├── Category.kt             # 7 body areas
-│   │   ├── FlexibilityTier.kt      # 5 tiers + weights for the engine
+│   ├── model/                      # Category, FlexibilityTier, Benchmark, ...
+│   │   ├── Category.kt             # NECK/SHOULDERS/WRISTS/SPINE/HIPS/KNEES/ANKLES
+│   │   ├── FlexibilityTier.kt      # 5 tiers + weights
 │   │   ├── BenchmarkInputType.kt   # NUMERIC | CATEGORICAL
 │   │   ├── Exercise.kt             # @Entity
-│   │   ├── Benchmark.kt            # @Entity
-│   │   ├── BenchmarkLog.kt         # @Entity (FK -> benchmarks)
+│   │   ├── Benchmark.kt            # @Entity (@Serializable)
+│   │   ├── BenchmarkLog.kt         # @Entity FK→benchmarks (@Serializable)
 │   │   ├── SessionRecord.kt        # @Entity (session header)
-│   │   └── SessionExercise.kt      # @Entity (FKs -> session_records, exercises)
+│   │   └── SessionExercise.kt      # @Entity FKs→session_records, exercises
 │   ├── database/
-│   │   ├── StretchDailyDatabase.kt # RoomDatabase, seeds on create
-│   │   ├── DatabaseSeeder.kt       # All 46 exercises + 10 benchmarks
-│   │   ├── Converters.kt           # JSON for List/Map, name() for enums
-│   │   └── dao/                    # ExerciseDao, BenchmarkDao, SessionDao, ...
+│   │   ├── StretchDailyDatabase.kt # RoomDatabase + onCreate seeding
+│   │   ├── DatabaseSeeder.kt       # 46 exercises + 10 benchmarks
+│   │   ├── Converters.kt           # JSON for List/Map, enum name()
+│   │   └── dao/                    # ExerciseDao, BenchmarkDao, BenchmarkLogDao,
+│   │                               #   SessionDao
 │   ├── engine/
-│   │   ├── LongevityEngine.kt      # Public generateSession() — only DAO-aware class
-│   │   ├── CategoryWeightCalculator.kt   # latest logs -> Map<Category, Double>
+│   │   ├── LongevityEngine.kt      # Public generateSession() — DAO-aware
+│   │   ├── CategoryWeightCalculator.kt   # latest logs → Map<Category, Double>
 │   │   ├── SelectionShield.kt      # exercises stale > 14d
 │   │   ├── SessionBuilder.kt       # weighted random + 120s cap
-│   │   └── model/
-│   │       └── SessionPlan.kt      # SessionPlan + PlannedExercise
+│   │   └── model/SessionPlan.kt    # SessionPlan + PlannedExercise
 │   ├── benchmark/
-│   │   ├── TierResolver.kt         # numeric reading -> FlexibilityTier
-│   │   └── BenchmarkProgressBuilder.kt   # logs -> normalized chart series
+│   │   ├── TierResolver.kt         # numeric reading → FlexibilityTier
+│   │   ├── BenchmarkProgressBuilder.kt   # logs → sparkline series
+│   │   ├── BenchmarkBetter.kt      # ASCENDING / DESCENDING / categorical lookup
+│   │   └── BenchmarkDelta.kt       # 6-month nearest-date raw delta
+│   ├── session/
+│   │   └── TodaySessionHolder.kt   # @Singleton — today's plan cache
 │   ├── audio/
 │   │   └── SessionAudioPlayer.kt   # SoundPool wrapper — start/end chimes
 │   ├── datastore/
-│   │   └── SettingsDataStore.kt    # Preferences DataStore — audio cues toggle
-│   ├── util/
-│   │   └── Clock.kt                # fun interface { now(): Long }
+│   │   └── SettingsDataStore.kt    # audio cues + benchmark banner toggles
+│   ├── util/Clock.kt               # fun interface { now(): Long }
 │   └── di/
-│       ├── DatabaseModule.kt       # Hilt — database, DAOs, ApplicationScope
-│       └── EngineModule.kt         # Hilt — Clock binding
+│       ├── DatabaseModule.kt       # database, DAOs, @ApplicationScope
+│       ├── EngineModule.kt         # Clock + ZoneId
+│       └── SessionModule.kt
 ├── data/
-│   ├── BenchmarkRepository.kt      # benchmark CRUD + isBenchmarksDue
-│   ├── SessionRepository.kt        # streak / weekly / total / lastAt + observeAllSessions
-│   ├── DataPortRepository.kt       # export / import / delete-all + re-seed
-│   └── export/
-│       └── ExportPayload.kt        # @Serializable versioned snapshot of all 5 tables
+│   ├── BenchmarkRepository.kt      # observeAllBenchmarks/observeLogsFor +
+│   │                               #   isBenchmarksDue
+│   ├── SessionRepository.kt        # streak/weekly/total/lastAt +
+│   │                               #   observeAllSessions
+│   ├── DataPortRepository.kt       # export/import/delete-all + re-seed
+│   └── export/ExportPayload.kt     # @Serializable snapshot of all 5 tables
 └── ui/
-    ├── theme/                      # Color, Type, Theme
+    ├── theme/                      # AppColors (sage), AppTypography,
+    │                               #   AppDimens, CategoryTint, Theme,
+    │                               #   OklchToSrgb
     ├── navigation/
     │   └── StretchDailyNavHost.kt  # Routes + bottom nav + nested graphs
-    ├── home/
-    │   ├── HomeViewModel.kt        # Joins streak / volume / heatmap / due
-    │   └── HomeScreen.kt           # KPI cards + heatmap + Start CTA
-    ├── benchmarks/
-    │   ├── BenchmarksUiState.kt
-    │   ├── BenchmarksViewModel.kt
-    │   ├── BenchmarksScreen.kt
-    │   ├── BenchmarkHistoryScreen.kt   # hosts the progress chart
-    │   ├── BenchmarkProgressChart.kt   # Canvas line chart over tier bands
-    │   └── LogBenchmarkDialog.kt
-    ├── session/
-    │   ├── SessionUiState.kt
-    │   ├── SessionViewModel.kt
-    │   ├── SessionPreviewScreen.kt
-    │   ├── SessionFollowAlongScreen.kt
-    │   ├── SessionCompleteScreen.kt
-    │   ├── SessionHistoryViewModel.kt   # Loading|Empty|Loaded
-    │   └── SessionHistoryScreen.kt      # read-only newest-first list
-    └── settings/
-        ├── SettingsScreen.kt       # Audio toggle + export/import/delete + history link
-        └── SettingsViewModel.kt    # SettingsStatus state machine + data port wiring
+    │                               #   (SESSION_GRAPH, CAROUSEL_GRAPH)
+    ├── components/                 # 12 reusable primitives:
+    │                               #   AppIcon, BandPill, BigChart, CatChip,
+    │                               #   ExerciseTile, KpiCard, MonoCaps, Pill,
+    │                               #   SegmentProgress, Sheet, Sparkline,
+    │                               #   WeekStrip
+    ├── debug/ComponentGalleryScreen.kt   # R2 visual catalog
+    └── screen/
+        ├── dashboard/              # Today tab
+        │   ├── DashboardScreen.kt
+        │   ├── DashboardUiState.kt
+        │   └── DashboardViewModel.kt
+        ├── session/                # SESSION_GRAPH (overview→player→complete)
+        │   ├── SessionOverviewScreen.kt + UiState + ViewModel
+        │   ├── SessionPlayerScreen.kt + UiState + ViewModel
+        │   └── SessionCompleteScreen.kt
+        ├── log/                    # Log tab
+        │   ├── BenchmarkLogScreen.kt + UiState + ViewModel
+        │   ├── LogForm.kt          # numeric + categorical input sheet
+        │   └── LogSparkline.kt     # log-row sparkline helper
+        ├── carousel/               # CAROUSEL_GRAPH (carousel/{step})
+        │   └── BenchmarkCarouselScreen.kt + UiState + ViewModel
+        ├── analytics/              # Progress tab
+        │   ├── AnalyticsScreen.kt + UiState + ViewModel
+        │   └── BenchmarkAnalyticsCard.kt   # per-benchmark BigChart card
+        ├── settings/               # Settings tab
+        │   ├── SettingsScreen.kt + UiState + ViewModel
+        │   └── (SettingsStatus inside ViewModel)
+        └── placeholder/PlaceholderScreen.kt   # used during R1–R5
 
 app/src/test/java/com/stretchdaily/app/
-├── core/engine/
-│   ├── CategoryWeightCalculatorTest.kt
-│   ├── SelectionShieldTest.kt
-│   └── SessionBuilderTest.kt       # 5-8 in 600-900s, statistical bias check
-├── core/benchmark/
-│   ├── TierResolverTest.kt
-│   └── BenchmarkProgressBuilderTest.kt   # chart series math
-├── data/
-│   ├── BenchmarkRepositoryDueTest.kt
-│   ├── SessionRepositoryStreakTest.kt   # streak math: empty/today/gap/grace
-│   ├── SessionRepositoryWindowTest.kt   # trailing N-day count helper
-│   └── DataPortRepositoryTest.kt        # snapshot/round-trip/version/delete
+├── core/engine/                    # CategoryWeightCalculator, SelectionShield,
+│                                   #   SessionBuilder
+├── core/benchmark/                 # TierResolver, BenchmarkProgressBuilder,
+│                                   #   BenchmarkBetter, BenchmarkDelta
+├── core/session/                   # TodaySessionHolder
+├── data/                           # BenchmarkRepositoryDue/DueSelection,
+│                                   #   SessionRepositoryStreak/Window/Flow,
+│                                   #   DataPortRepository
 └── ui/
-    ├── benchmarks/
-    │   └── BenchmarksViewModelTest.kt
-    ├── home/
-    │   └── HomeViewModelTest.kt    # mockk-driven dashboard transitions
-    └── session/
-        ├── SessionViewModelTest.kt
-        └── SessionHistoryViewModelTest.kt
+    ├── components/                 # SegmentProgressHelpers, WeekStripHelpers
+    ├── theme/                      # CategoryTint, OklchToSrgb
+    └── screen/
+        ├── dashboard/              # DashboardViewModelTest
+        ├── session/                # SessionOverview/Player ViewModelTests
+        ├── log/                    # BenchmarkLog ViewModelTest + LogSparkline
+        ├── carousel/               # BenchmarkCarousel ViewModelTest
+        ├── analytics/              # AnalyticsViewModelTest
+        └── settings/               # SettingsViewModelTest
 ```
 
 Reference materials (gitignored — kept locally only):
@@ -398,6 +461,9 @@ during a session.
 
 ## 8. Pointers
 
-- Plan: `C:\Users\RamonvanSchalm\.claude\plans\logical-napping-flask.md`
+- Sage redesign plans (R1–R6): `docs/superpowers/plans/2026-04-23-sage-redesign-R*.md`
+- Sage design handoff: `docs/design_handoff_stretch_daily_v3/` —
+  open `reference/index.html` in a browser for the per-screen
+  pixel reference.
 - Git workflow skill: `.claude/skills/git-flow/SKILL.md`
 - GitHub remote: https://github.com/RvanSchalm/stretch-daily
