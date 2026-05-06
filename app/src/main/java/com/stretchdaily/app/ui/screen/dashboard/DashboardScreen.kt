@@ -50,7 +50,7 @@ import java.util.Locale
  * Dashboard (tab = "today"). See design spec §8.1.
  *
  * Layout, top to bottom:
- *  - TopStrip: "MON, APR 15" + streak chip (flame + N).
+ *  - TopStrip: "WEDNESDAY, MAY 6" + streak chip (flame + N).
  *  - HeroHeader: "Stretch Daily" + "N exercises · ~M minutes · ..." subtitle.
  *  - BenchmarkBanner (optional): visible only when the user turned on
  *    [com.stretchdaily.app.core.datastore.SettingsDataStore.benchmarkBannerEnabled]
@@ -347,6 +347,6 @@ private fun mergePadding(inner: PaddingValues, outer: PaddingValues): PaddingVal
     )
 
 private val DATE_FORMATTER: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault())
+    DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.ENGLISH)
 
 private fun formatDate(date: java.time.LocalDate): String = date.format(DATE_FORMATTER)
