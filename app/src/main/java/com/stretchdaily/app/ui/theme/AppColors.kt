@@ -36,28 +36,27 @@ data class AppColors(
 )
 
 /**
- * Sage theme — the production palette.
+ * Sage theme — the production palette. Mirrors the design handoff's
+ * `--bg`, `--surface`, etc. 1:1.
  *
- * `bg` uses the user-ratified tweak `#fbf8f0` (handoff default was
- * `#f2eee4`; user approved the cream override — see spec §4.1).
  * `accentSoft` is the handoff's `oklch(0.88 0.045 135)` resolved to sRGB
  * once here; we don't run oklch→sRGB for this single value at runtime.
  * `line` / `line2` are the handoff rgba() values; Compose accepts alpha
  * in the Color() constructor directly.
  */
 fun sageColors(): AppColors = AppColors(
-    bg = Color(0xFFFBF8F0),
+    bg = Color(0xFFF2EEE4),
     bg2 = Color(0xFFE8E4D9),
     surface = Color(0xFFF9F6EC),
     surface2 = Color(0xFFEDE9DE),
     ink = Color(0xFF252823),
     ink2 = Color(0xFF54584D),
     ink3 = Color(0xFF8A8D82),
-    line = Color(red = 0x25, green = 0x28, blue = 0x23, alpha = 0x1F),  // 0.12 * 255 ≈ 31
-    line2 = Color(red = 0x25, green = 0x28, blue = 0x23, alpha = 0x0F), // 0.06 * 255 ≈ 15
+    line = Color(red = 0x25, green = 0x28, blue = 0x23, alpha = 0x1F),
+    line2 = Color(red = 0x25, green = 0x28, blue = 0x23, alpha = 0x0F),
     accent = Color(0xFF5C7A4A),
     accent2 = Color(0xFF4A6741),
     accentInk = Color(0xFFF5F3EA),
-    accentSoft = Color(0xFFD4E2C4), // oklch(0.88 0.045 135) → sRGB (precomputed)
+    accentSoft = Color(0xFFD4E2C4),
     warn = Color(0xFFA6632A),
 )
