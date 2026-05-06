@@ -24,6 +24,8 @@ enum class IconName(@DrawableRes val res: Int) {
     Swap(R.drawable.ic_swap),
     Sparkle(R.drawable.ic_sparkle),
     Flame(R.drawable.ic_flame),
+    Clock(R.drawable.ic_clock),
+    Calendar(R.drawable.ic_calendar),
     ChevronRight(R.drawable.ic_chevron_right),
     ChevronDown(R.drawable.ic_chevron_down),
     Close(R.drawable.ic_close),

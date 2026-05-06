@@ -305,7 +305,7 @@ private fun KpiGrid(kpis: Kpis) {
             )
             KpiCard(
                 eyebrow = "Total time",
-                icon = IconName.Sparkle,
+                icon = IconName.Clock,
                 value = kpis.totalMinutes.toString(),
                 suffix = "min",
                 modifier = Modifier.weight(1f),
@@ -321,7 +321,7 @@ private fun KpiGrid(kpis: Kpis) {
             )
             KpiCard(
                 eyebrow = "Next benchmark",
-                icon = IconName.Sparkle,
+                icon = IconName.Calendar,
                 value = kpis.nextBenchmarkDays?.toString() ?: "—",
                 suffix = if (kpis.nextBenchmarkDays != null) "d" else "",
                 modifier = Modifier.weight(1f),
