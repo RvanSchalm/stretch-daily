@@ -37,13 +37,14 @@ fun segmentStateFor(index: Int, currentIndex: Int, total: Int): SegmentState {
 }
 
 /**
- * N-segment progress rail. Each cell is 3 dp tall, radius 1.5 dp,
+ * N-segment progress rail. Each cell is 4 dp tall, radius 1.5 dp,
  * separated by 3 dp gaps.
  *
  * Colors:
- *  - Past    to `accent x 0.55`
- *  - Current to `accent`
- *  - Future  to `line`
+ *  - Past    → `accent x 0.55`
+ *  - Current → `accent`
+ *  - Future  → `ink x 0.18` (raised from `line` so the rail is legible
+ *              at small heights against the cream bg)
  */
 @Composable
 fun SegmentProgress(
@@ -53,13 +54,13 @@ fun SegmentProgress(
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(3.dp),
-        modifier = modifier.fillMaxWidth().height(3.dp),
+        modifier = modifier.fillMaxWidth().height(4.dp),
     ) {
         for (i in 0 until total) {
             val color = when (segmentStateFor(i, currentIndex, total)) {
                 SegmentState.Past -> Theme.colors.accent.copy(alpha = 0.55f)
                 SegmentState.Current -> Theme.colors.accent
-                SegmentState.Future -> Theme.colors.line
+                SegmentState.Future -> Theme.colors.ink.copy(alpha = 0.18f)
             }
             Box(
                 modifier = Modifier
