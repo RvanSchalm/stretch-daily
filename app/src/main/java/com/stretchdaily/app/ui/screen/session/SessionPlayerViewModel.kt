@@ -81,6 +81,10 @@ class SessionPlayerViewModel @Inject constructor(
         val r = _state.value as? SessionPlayerUiState.Running ?: return
         if (r.phase != TimerPhase.PAUSED) return
         _state.value = r.copy(phase = TimerPhase.RUNNING)
+        startTimer()  // Defensive: re-launch the 1 Hz loop so we don't depend
+                      // on the prior timerJob still being alive across pause/resume.
+                      // startTimer() begins with timerJob?.cancel(), so this is
+                      // idempotent if the prior job is still running.
     }
 
     fun next() {

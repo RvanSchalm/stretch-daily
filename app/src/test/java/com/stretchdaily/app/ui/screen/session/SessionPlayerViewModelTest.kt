@@ -261,6 +261,73 @@ class SessionPlayerViewModelTest {
     }
 
     @Test
+    fun `prev from second exercise LEFT lands on previous exercise terminal side READY`() = runTest {
+        // Two unilateral exercises. After init, we're on exercise 0 LEFT READY.
+        // next() once → exercise 0 RIGHT READY (LEFT→RIGHT advance within unilateral).
+        // next() again → exercise 1 LEFT READY (cross-exercise advance).
+        // Now prev() should bring us back to exercise 0 RIGHT READY (terminal side).
+        stubHolder(plan(item("a", 60, isUnilateral = true), item("b", 60, isUnilateral = true)))
+        val vm = viewModel()
+        runCurrent()
+
+        vm.next()
+        vm.next()
+        var r = vm.state.value as SessionPlayerUiState.Running
+        assertEquals(1, r.currentIndex)
+        assertEquals(Side.LEFT, r.side)
+
+        vm.prev()
+        r = vm.state.value as SessionPlayerUiState.Running
+        assertEquals(0, r.currentIndex)
+        assertEquals(Side.RIGHT, r.side)  // terminal side of unilateral
+        assertEquals(TimerPhase.READY, r.phase)
+    }
+
+    @Test
+    fun `prev from second exercise bilateral lands on previous exercise NONE READY`() = runTest {
+        // Bilateral exercises: prev from index 1 lands on index 0 with side NONE in READY.
+        stubHolder(plan(item("a", 60), item("b", 60)))
+        val vm = viewModel()
+        runCurrent()
+
+        vm.next()
+        var r = vm.state.value as SessionPlayerUiState.Running
+        assertEquals(1, r.currentIndex)
+
+        vm.prev()
+        r = vm.state.value as SessionPlayerUiState.Running
+        assertEquals(0, r.currentIndex)
+        assertEquals(Side.NONE, r.side)
+        assertEquals(TimerPhase.READY, r.phase)
+    }
+
+    @Test
+    fun `pause then resume continues the countdown when tick fires`() = runTest {
+        // Documents the invariant that pause/resume preserves countdown progress.
+        // resume() now defensively calls startTimer() so this works even if the
+        // prior timerJob died for any reason.
+        stubHolder(plan(item("a", 5)))
+        val vm = viewModel()
+        runCurrent()
+
+        vm.start()
+        vm.tick()  // 5 → 4
+        vm.tick()  // 4 → 3
+        assertEquals(3, (vm.state.value as SessionPlayerUiState.Running).remainingSeconds)
+
+        vm.pause()
+        vm.tick()  // no-op while PAUSED
+        assertEquals(3, (vm.state.value as SessionPlayerUiState.Running).remainingSeconds)
+
+        vm.resume()
+        vm.tick()  // 3 → 2
+        assertEquals(2, (vm.state.value as SessionPlayerUiState.Running).remainingSeconds)
+
+        // Don't leave RUNNING — runTest's drain would burn the timer to finish.
+        vm.pause()
+    }
+
+    @Test
     fun `final phase tick-end transitions to Complete with one chime total`() = runTest {
         val only = item("only", 1)
         stubHolder(plan(only))
