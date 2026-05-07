@@ -46,15 +46,6 @@ fun LogForm(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        if (benchmark.description.isNotBlank()) {
-            Text(
-                text = benchmark.description,
-                style = Theme.typo.bodyMd,
-                color = Theme.colors.ink2,
-                modifier = Modifier.padding(bottom = 14.dp),
-            )
-        }
-
         when (benchmark.inputType) {
             BenchmarkInputType.NUMERIC -> NumericInput(
                 unit = benchmark.unit,

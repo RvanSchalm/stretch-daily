@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
+import com.stretchdaily.app.ui.components.BandsList
 import com.stretchdaily.app.ui.components.CircleButton
 import com.stretchdaily.app.ui.components.CircleButtonSize
 import com.stretchdaily.app.ui.components.CircleButtonVariant
@@ -98,6 +99,18 @@ fun BenchmarkCarouselScreen(
                             modifier = Modifier.padding(bottom = 14.dp),
                         )
                     }
+                    Spacer(Modifier.height(4.dp))
+                    MonoCaps(
+                        text = "BANDS",
+                        size = MonoCapsSize.Small,
+                        color = Theme.colors.ink3,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    BandsList(
+                        benchmark = bm,
+                        highlightTier = null,
+                    )
+                    Spacer(Modifier.height(14.dp))
                     LogForm(
                         benchmark = bm,
                         onSubmit = { raw, tier -> viewModel.onSaveEntry(raw, tier) },
