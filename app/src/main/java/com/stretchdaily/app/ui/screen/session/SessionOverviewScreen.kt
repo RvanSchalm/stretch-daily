@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -28,9 +30,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.stretchdaily.app.core.engine.model.PlannedExercise
 import com.stretchdaily.app.core.model.Exercise
@@ -92,6 +98,35 @@ fun SessionOverviewScreen(
                         )
                     }
                 }
+            }
+            item {
+                val swapId = "swap"
+                val annotated = buildAnnotatedString {
+                    append("Tap any exercise to see cues, or ")
+                    appendInlineContent(swapId, "[swap]")
+                    append(" to swap for another in the same category.")
+                }
+                val inline = mapOf(
+                    swapId to InlineTextContent(
+                        placeholder = Placeholder(
+                            width = 14.sp,
+                            height = 14.sp,
+                            placeholderVerticalAlign = PlaceholderVerticalAlign.TextCenter,
+                        ),
+                    ) {
+                        AppIcon(
+                            name = IconName.Swap,
+                            contentDescription = null,
+                            tint = Theme.colors.ink2,
+                        )
+                    },
+                )
+                Text(
+                    text = annotated,
+                    inlineContent = inline,
+                    style = Theme.typo.bodySm,
+                    color = Theme.colors.ink2,
+                )
             }
             item { CategorySpreadBar(state.items) }
             items(state.items, key = { it.exercise.id }) { item ->
