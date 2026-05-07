@@ -139,7 +139,9 @@ internal object BenchmarkProgressBuilder {
 
         // X-axis month bounds.
         val firstMonth = YearMonth.from(Instant.ofEpochMilli(sorted.first().loggedAt).atZone(ZONE))
-        val lastMonth = YearMonth.from(Instant.ofEpochMilli(sorted.last().loggedAt).atZone(ZONE))
+        val nowMonth = YearMonth.now(ZONE)
+        val lastLogMonth = YearMonth.from(Instant.ofEpochMilli(sorted.last().loggedAt).atZone(ZONE))
+        val lastMonth = if (nowMonth.isAfter(lastLogMonth)) nowMonth else lastLogMonth
 
         return ProgressSeries(
             points = points,

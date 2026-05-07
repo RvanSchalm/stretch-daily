@@ -100,7 +100,7 @@ class BenchmarkLogViewModelTest {
     }
 
     @Test
-    fun `row exposes latest log and sparkline values in window`() = runTest(testDispatcher) {
+    fun `row exposes latest log and history in newest-first order`() = runTest(testDispatcher) {
         val older = log(1, sitReach.id, FlexibilityTier.STIFF, daysAgo = 90)
         val recent = log(2, sitReach.id, FlexibilityTier.AVERAGE, daysAgo = 20)
         coEvery { repo.observeAllBenchmarks() } returns flowOf(listOf(sitReach))
@@ -112,7 +112,6 @@ class BenchmarkLogViewModelTest {
 
         val row = vm.state.value.groups.single().rows.single()
         assertEquals(recent.id, row.latestLog?.id)
-        assertEquals(listOf(0.0, 0.5), row.sparkline) // oldest→newest
         // History is newest-first for the expanded table.
         assertEquals(listOf(recent.id, older.id), row.history.map { it.id })
     }

@@ -68,7 +68,7 @@ class AnalyticsViewModel @Inject constructor(
                     }
                     AnalyticsUiState(
                         cards = cards,
-                        allCategories = Category.values().filter { c -> benchmarks.any { it.category == c } },
+                        allCategories = Category.entries.filter { c -> benchmarks.any { it.category == c } },
                     )
                 }
             }
