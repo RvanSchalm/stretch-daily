@@ -19,13 +19,16 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
- * Nested-graph-scoped ViewModel for `"session/player"` + `"session/complete"`.
- * Reads the plan from [TodaySessionHolder] on init, runs the 1 Hz timer
- * loop, writes the [SessionRepository.completeSession] record at the end,
- * and stays alive for the complete screen to read [SessionPlayerUiState.Complete].
+ * Session-graph-scoped ViewModel.
  *
- * Timer: [startTimer] launches a coroutine that calls [tick] every second.
- * [tick] is `internal` so unit tests can drive it deterministically.
+ * Phase model (per spec §5.2):
+ *  - READY  : timer parked at full duration, awaiting Start tap. No countdown.
+ *  - RUNNING: timer counting down at 1 Hz. Pause flips to PAUSED.
+ *  - PAUSED : countdown frozen mid-phase. Resume flips back to RUNNING.
+ *
+ * Sound model (per spec §5.4): exactly one [audioPlayer.playEnd] call per
+ * timer phase reaching zero. start/pause/resume/next/prev are silent.
+ * Init does not chime — the user lands in READY in silence.
  */
 @HiltViewModel
 class SessionPlayerViewModel @Inject constructor(
@@ -43,7 +46,6 @@ class SessionPlayerViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            // Holder is already populated by the overview screen, but guard anyway.
             holder.ensureFresh()
             val today = holder.state.value ?: return@launch
             startedAt = clock.now()
@@ -56,42 +58,63 @@ class SessionPlayerViewModel @Inject constructor(
                 side = side,
                 remainingSeconds = secs,
                 totalSecondsForPhase = secs,
-                isPaused = false,
+                phase = TimerPhase.READY,
             )
-            audioPlayer.playStart()
-            startTimer()
+            // No audio on init — user lands in READY in silence.
         }
     }
 
-    fun togglePause() {
+    fun start() {
         val r = _state.value as? SessionPlayerUiState.Running ?: return
-        _state.value = r.copy(isPaused = !r.isPaused)
+        if (r.phase != TimerPhase.READY) return
+        _state.value = r.copy(phase = TimerPhase.RUNNING)
+        startTimer()
     }
 
-    fun skip() {
+    fun pause() {
         val r = _state.value as? SessionPlayerUiState.Running ?: return
-        advance(r)
+        if (r.phase != TimerPhase.RUNNING) return
+        _state.value = r.copy(phase = TimerPhase.PAUSED)
+    }
+
+    fun resume() {
+        val r = _state.value as? SessionPlayerUiState.Running ?: return
+        if (r.phase != TimerPhase.PAUSED) return
+        _state.value = r.copy(phase = TimerPhase.RUNNING)
+    }
+
+    fun next() {
+        val r = _state.value as? SessionPlayerUiState.Running ?: return
+        timerJob?.cancel()
+        advanceSilent(r)
     }
 
     fun prev() {
         val r = _state.value as? SessionPlayerUiState.Running ?: return
-        // Unilateral RIGHT → LEFT on the same exercise; otherwise step back one exercise.
+        timerJob?.cancel()
         val item = r.plan.items[r.currentIndex]
         if (item.exercise.isUnilateral && r.side == Side.RIGHT) {
+            // RIGHT → LEFT of same exercise, READY.
             val secs = phaseSeconds(item, Side.LEFT)
-            _state.value = r.copy(side = Side.LEFT, remainingSeconds = secs, totalSecondsForPhase = secs)
+            _state.value = r.copy(
+                side = Side.LEFT,
+                remainingSeconds = secs,
+                totalSecondsForPhase = secs,
+                phase = TimerPhase.READY,
+            )
             return
         }
         val prevIndex = (r.currentIndex - 1).coerceAtLeast(0)
         val prevItem = r.plan.items[prevIndex]
-        val prevSide =
-            if (prevItem.exercise.isUnilateral) Side.LEFT else Side.NONE
+        // For unilateral, prev() lands on RIGHT (terminal side); for bilateral, NONE.
+        val prevSide = if (prevItem.exercise.isUnilateral) Side.RIGHT else Side.NONE
         val secs = phaseSeconds(prevItem, prevSide)
         _state.value = r.copy(
             currentIndex = prevIndex,
             side = prevSide,
             remainingSeconds = secs,
             totalSecondsForPhase = secs,
+            phase = TimerPhase.READY,
         )
     }
 
@@ -105,32 +128,34 @@ class SessionPlayerViewModel @Inject constructor(
         }
     }
 
-    /** Exposed to tests. Decrements or advances when the phase reaches zero. */
+    /** Exposed to tests. Decrements when RUNNING; advances + chimes at zero. */
     internal fun tick() {
         val r = _state.value as? SessionPlayerUiState.Running ?: return
-        if (r.isPaused) return
+        if (r.phase != TimerPhase.RUNNING) return
         val next = r.remainingSeconds - 1
         if (next > 0) {
             _state.value = r.copy(remainingSeconds = next)
-        } else {
-            advance(r)
+            return
         }
+        // Phase ended naturally: chime, then advance.
+        timerJob?.cancel()
+        viewModelScope.launch { audioPlayer.playEnd() }
+        advanceSilent(r)
     }
 
-    private fun advance(r: SessionPlayerUiState.Running) {
+    private fun advanceSilent(r: SessionPlayerUiState.Running) {
         val item = r.plan.items[r.currentIndex]
-
-        // Unilateral LEFT → RIGHT same exercise.
+        // Unilateral LEFT → RIGHT, same exercise, READY.
         if (item.exercise.isUnilateral && r.side == Side.LEFT) {
             val secs = phaseSeconds(item, Side.RIGHT)
             _state.value = r.copy(
                 side = Side.RIGHT,
                 remainingSeconds = secs,
                 totalSecondsForPhase = secs,
+                phase = TimerPhase.READY,
             )
             return
         }
-
         val nextIndex = r.currentIndex + 1
         if (nextIndex >= r.plan.items.size) {
             finish(r.plan)
@@ -144,23 +169,23 @@ class SessionPlayerViewModel @Inject constructor(
             side = nextSide,
             remainingSeconds = secs,
             totalSecondsForPhase = secs,
+            phase = TimerPhase.READY,
         )
-        viewModelScope.launch { audioPlayer.playStart() }
     }
 
     private fun finish(plan: SessionPlan) {
         timerJob?.cancel()
-        // Flip state synchronously so any in-flight tick() bails before we
-        // kick off the persistence coroutine — prevents duplicate session
-        // records if tick() re-enters finish() before the launch block below
-        // has a chance to write _state.
+        // Note: we do NOT call audioPlayer.playEnd() here. tick() already
+        // fired one chime when the final phase reached zero. finish() is
+        // also reachable via next() from the last phase, in which case the
+        // user's session-complete cue is the visual transition (silent
+        // completion is consistent with silent next() everywhere else).
         _state.value = SessionPlayerUiState.Complete(
             areasStretched = plan.items.map { it.exercise.category }.toSet().size,
             totalMinutes = plan.totalSeconds / 60,
             streakAfter = 0,
         )
         viewModelScope.launch {
-            audioPlayer.playEnd()
             repository.completeSession(plan, startedAt)
             holder.onSessionCompleted()
             val streak = repository.currentStreakDays()
@@ -175,11 +200,6 @@ class SessionPlayerViewModel @Inject constructor(
     }
 
     companion object {
-        /**
-         * Split an exercise's budget by side. Bilateral or `Side.NONE`: full
-         * budget. Unilateral: half each, LEFT gets the ceiling so odd totals
-         * don't lose a second. Preserved from the pre-R1 session VM.
-         */
         internal fun phaseSeconds(item: PlannedExercise, side: Side): Int =
             if (!item.exercise.isUnilateral || side == Side.NONE) {
                 item.effectiveSeconds
