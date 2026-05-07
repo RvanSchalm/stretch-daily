@@ -181,10 +181,4 @@ class BenchmarkLogViewModel @Inject constructor(
         val loggedDate = LocalDate.ofInstant(Instant.ofEpochMilli(latestLog.loggedAt), zone)
         return loggedDate.isBefore(monthStart)
     }
-
-    companion object {
-        /** Visible for tests — shared tier category-order comparator could live here if needed. */
-        @Suppress("unused")
-        private val CATEGORY_ORDER: Comparator<Category> = compareBy { it.ordinal }
-    }
 }
