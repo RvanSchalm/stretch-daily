@@ -19,7 +19,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -193,10 +192,10 @@ private fun String?.belongsToTab(tabRoute: String): Boolean = when (tabRoute) {
     else -> false
 }
 
-/** Pop to tab root, single-top, restore state — standard bottom-nav pattern. */
+/** Pop to TODAY (the NavHost root), single-top, restore state — bottom-nav pattern. */
 private fun NavHostController.navigateToTab(route: String) {
     navigate(route) {
-        popUpTo(graph.findStartDestination().id) { saveState = true }
+        popUpTo(Routes.TODAY) { saveState = true }
         launchSingleTop = true
         restoreState = true
     }
