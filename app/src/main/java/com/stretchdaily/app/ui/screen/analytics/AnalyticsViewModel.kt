@@ -56,7 +56,7 @@ class AnalyticsViewModel @Inject constructor(
                         val logs = perBenchmarkLogs[i]
                         BenchmarkAnalyticsCardState(
                             benchmark = bm,
-                            series = BenchmarkProgressBuilder.build(logs),
+                            series = BenchmarkProgressBuilder.build(bm, logs),
                             latestRawValue = logs.maxByOrNull { it.loggedAt }?.rawValue,
                             delta = benchmarkDelta(
                                 logs = logs,
