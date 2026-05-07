@@ -152,7 +152,6 @@ class BenchmarkLogViewModel @Inject constructor(
             BenchmarkRowUiState(
                 benchmark = bm,
                 latestLog = latestLog,
-                sparkline = sparklineValues(allLogs, nowMillis),
                 history = allLogs.sortedByDescending { it.loggedAt },
                 isOverdue = isOverdue,
             )

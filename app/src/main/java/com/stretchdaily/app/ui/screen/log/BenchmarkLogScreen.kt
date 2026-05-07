@@ -44,7 +44,6 @@ import com.stretchdaily.app.ui.components.MonoCapsSize
 import com.stretchdaily.app.ui.components.Pill
 import com.stretchdaily.app.ui.components.PillVariant
 import com.stretchdaily.app.ui.components.Sheet
-import com.stretchdaily.app.ui.components.Sparkline
 import com.stretchdaily.app.ui.theme.Theme
 import com.stretchdaily.app.ui.theme.tint
 
@@ -340,7 +339,6 @@ private fun ValueLine(row: BenchmarkRowUiState) {
             }
         }
         row.latestTier?.let { BandPill(tier = it) }
-        Sparkline(values = row.sparkline)
     }
 }
 

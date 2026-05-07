@@ -21,7 +21,6 @@ data class CategoryGroup(
 data class BenchmarkRowUiState(
     val benchmark: Benchmark,
     val latestLog: BenchmarkLog?,
-    val sparkline: List<Double>,
     val history: List<BenchmarkLog>, // newest-first, for the expanded table
     val isOverdue: Boolean,          // no log this calendar month
 ) {
