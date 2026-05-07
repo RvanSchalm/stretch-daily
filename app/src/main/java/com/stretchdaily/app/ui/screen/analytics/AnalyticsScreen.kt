@@ -81,7 +81,7 @@ private fun AnalyticsHeader() {
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Six months in.",
+            text = "Your trajectory.",
             modifier = Modifier.semantics { heading() },
             color = Theme.colors.ink,
             fontSize = 30.sp,

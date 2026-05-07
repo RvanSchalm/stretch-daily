@@ -122,6 +122,25 @@ class AnalyticsViewModelTest {
     }
 
     @Test
+    fun `allCategories follows body-top-to-bottom Category enum order regardless of benchmark insertion order`() = runTest(testDispatcher) {
+        // Benchmarks in reverse order (ANKLES, HIPS, NECK)
+        // should yield categories in declaration order (NECK, HIPS, ANKLES)
+        val reversed = listOf(
+            numeric("BM_KNEE_TO_WALL", Category.ANKLES, "Knee-to-wall"),
+            numeric("BM_SIT_AND_REACH", Category.HIPS, "Sit and Reach"),
+            numeric("BM_CERVICAL_ROTATION", Category.NECK, "Cervical Rotation"),
+        )
+        coEvery { repo.observeAllBenchmarks() } returns flowOf(reversed)
+        coEvery { repo.observeLogsFor(any()) } returns flowOf(emptyList())
+        val vm = vm()
+        advanceUntilIdle()
+        assertEquals(
+            listOf(Category.NECK, Category.HIPS, Category.ANKLES),
+            vm.state.value.allCategories,
+        )
+    }
+
+    @Test
     fun `latestRawValue is newest log's raw value`() = runTest(testDispatcher) {
         coEvery { repo.observeAllBenchmarks() } returns flowOf(catalog)
         coEvery { repo.observeLogsFor("BM_CERVICAL_ROTATION") } returns flowOf(
