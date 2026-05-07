@@ -45,7 +45,11 @@ fun BenchmarkAnalyticsCard(state: BenchmarkAnalyticsCardState) {
             CardHeaderRow(state = state)
             Spacer(modifier = Modifier.height(8.dp))
             Box(modifier = Modifier.padding(start = 0.dp, end = 0.dp)) {
-                BigChart(series = state.series)
+                BigChart(
+                    series = state.series,
+                    category = state.benchmark.category,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }
