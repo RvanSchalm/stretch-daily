@@ -35,9 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.stretchdaily.app.core.model.Category
-import com.stretchdaily.app.core.model.FlexibilityTier
 import com.stretchdaily.app.ui.components.AppIcon
 import com.stretchdaily.app.ui.components.BandPill
+import com.stretchdaily.app.ui.components.BandsList
 import com.stretchdaily.app.ui.components.IconName
 import com.stretchdaily.app.ui.components.MonoCaps
 import com.stretchdaily.app.ui.components.MonoCapsSize
@@ -367,7 +367,10 @@ private fun ExpandedDetails(row: BenchmarkRowUiState) {
             color = Theme.colors.ink3,
             modifier = Modifier.padding(bottom = 6.dp),
         )
-        BandsList(row = row)
+        BandsList(
+            benchmark = row.benchmark,
+            highlightTier = row.latestTier,
+        )
 
         if (row.history.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
@@ -378,44 +381,6 @@ private fun ExpandedDetails(row: BenchmarkRowUiState) {
                 modifier = Modifier.padding(bottom = 6.dp),
             )
             HistoryList(row = row)
-        }
-    }
-}
-
-@Composable
-private fun BandsList(row: BenchmarkRowUiState) {
-    val tiers = listOf(
-        FlexibilityTier.VERY_FLEXIBLE,
-        FlexibilityTier.FLEXIBLE,
-        FlexibilityTier.AVERAGE,
-        FlexibilityTier.BELOW_AVERAGE,
-        FlexibilityTier.STIFF,
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        tiers.forEach { tier ->
-            val highlighted = tier == row.latestTier
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(if (highlighted) Theme.colors.accent else Theme.colors.line),
-                )
-                Text(
-                    text = tier.name.replace('_', ' ').lowercase().replaceFirstChar { it.titlecase() },
-                    style = Theme.typo.bodyMd.copy(
-                        fontWeight = if (highlighted) FontWeight.W600 else FontWeight.W400,
-                    ),
-                    fontSize = 11.sp,
-                    color = if (highlighted) Theme.colors.ink else Theme.colors.ink2,
-                    modifier = Modifier.width(100.dp),
-                )
-                val hint = row.benchmark.tierRanges[tier.name].orEmpty()
-                MonoCaps(text = hint, size = MonoCapsSize.Small, color = Theme.colors.ink3)
-            }
         }
     }
 }
