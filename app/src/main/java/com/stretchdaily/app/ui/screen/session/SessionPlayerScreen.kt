@@ -12,12 +12,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
@@ -33,6 +36,7 @@ import com.stretchdaily.app.ui.components.Pill
 import com.stretchdaily.app.ui.components.PillVariant
 import com.stretchdaily.app.ui.components.SegmentProgress
 import com.stretchdaily.app.ui.theme.Theme
+import com.stretchdaily.app.ui.theme.tint
 
 @Composable
 fun SessionPlayerScreen(
@@ -44,23 +48,22 @@ fun SessionPlayerScreen(
     val vm: SessionPlayerViewModel = hiltViewModel(parentEntry)
     val state by vm.state.collectAsState()
 
-    // Navigate to Complete screen when the VM transitions.
     androidx.compose.runtime.LaunchedEffect(state) {
         if (state is SessionPlayerUiState.Complete) onComplete()
     }
 
-    Box(
-        modifier = modifier.fillMaxSize().background(Theme.colors.bg),
-    ) {
+    Box(modifier = modifier.fillMaxSize().background(Theme.colors.bg)) {
         when (val s = state) {
             SessionPlayerUiState.Loading -> Unit
-            is SessionPlayerUiState.Complete -> Unit // handled by LaunchedEffect above
+            is SessionPlayerUiState.Complete -> Unit
             is SessionPlayerUiState.Running -> PlayerBody(
                 state = s,
                 onClose = onClose,
                 onPrev = vm::prev,
-                onSkip = vm::skip,
-                onTogglePause = vm::togglePause,
+                onNext = vm::next,
+                onStart = vm::start,
+                onPause = vm::pause,
+                onResume = vm::resume,
             )
         }
     }
@@ -71,19 +74,15 @@ private fun PlayerBody(
     state: SessionPlayerUiState.Running,
     onClose: () -> Unit,
     onPrev: () -> Unit,
-    onSkip: () -> Unit,
-    onTogglePause: () -> Unit,
+    onNext: () -> Unit,
+    onStart: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
 ) {
     Column(
-        // Session flow is immersive (no outer Scaffold to absorb system
-        // insets), so each screen handles its own. systemBarsPadding covers
-        // both the status bar (top) and the gesture nav bar (bottom) —
-        // the bottom matters because the Prev/Pause/Next control row sits
-        // flush against it.
         modifier = Modifier.fillMaxSize().systemBarsPadding().padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // Top bar.
         Row(verticalAlignment = Alignment.CenterVertically) {
             CircleButton(
                 onClick = onClose,
@@ -98,10 +97,9 @@ private fun PlayerBody(
                 currentIndex = state.currentIndex,
                 modifier = Modifier.weight(1f),
             )
-            Spacer(modifier = Modifier.size(44.dp)) // symmetry
+            Spacer(modifier = Modifier.size(44.dp))
         }
 
-        // Caption row.
         Row(modifier = Modifier.fillMaxWidth()) {
             MonoCaps(
                 text = "MOVE ${state.currentIndex + 1} OF ${state.plan.items.size}",
@@ -116,14 +114,12 @@ private fun PlayerBody(
             )
         }
 
-        // Exercise tile.
         ExerciseTile(
             category = state.currentItem.exercise.category,
             size = ExerciseTileSize.Large4x3,
             modifier = Modifier.fillMaxWidth(),
         )
 
-        // Title + cues.
         Text(
             text = state.currentItem.exercise.name,
             style = Theme.typo.displayMd,
@@ -131,32 +127,24 @@ private fun PlayerBody(
         )
         state.currentItem.exercise.cues.take(4).forEach { cue ->
             Row {
-                Text(
-                    text = "— ",
-                    style = Theme.typo.bodyMd,
-                    color = Theme.colors.accent,
-                )
-                Text(
-                    text = cue,
-                    style = Theme.typo.bodyMd,
-                    color = Theme.colors.ink2,
-                )
+                Text(text = "— ", style = Theme.typo.bodyMd, color = Theme.colors.accent)
+                Text(text = cue, style = Theme.typo.bodyMd, color = Theme.colors.ink2)
             }
         }
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Timer area.
         TimerArea(state = state)
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Controls.
         ControlRow(
             state = state,
             onPrev = onPrev,
-            onSkip = onSkip,
-            onTogglePause = onTogglePause,
+            onNext = onNext,
+            onStart = onStart,
+            onPause = onPause,
+            onResume = onResume,
         )
     }
 }
@@ -164,21 +152,18 @@ private fun PlayerBody(
 @Composable
 private fun TimerArea(state: SessionPlayerUiState.Running) {
     val ex = state.currentItem.exercise
+    val tint = ex.category.tint()
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (ex.isUnilateral) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                SideChip(label = "LEFT", active = state.side == Side.LEFT)
+                SideChip(label = "LEFT", active = state.side == Side.LEFT, tint = tint)
                 Spacer(modifier = Modifier.padding(horizontal = 6.dp))
-                Text(
-                    text = "—",
-                    style = Theme.typo.bodyLg,
-                    color = Theme.colors.ink3,
-                )
+                Text(text = "—", style = Theme.typo.bodyLg, color = Theme.colors.ink3)
                 Spacer(modifier = Modifier.padding(horizontal = 6.dp))
-                SideChip(label = "RIGHT", active = state.side == Side.RIGHT)
+                SideChip(label = "RIGHT", active = state.side == Side.RIGHT, tint = tint)
             }
             Spacer(modifier = Modifier.height(12.dp))
         }
@@ -196,11 +181,7 @@ private fun TimerArea(state: SessionPlayerUiState.Running) {
                     color = Theme.colors.ink,
                 )
                 Spacer(modifier = Modifier.padding(horizontal = 4.dp))
-                Text(
-                    text = "reps",
-                    style = Theme.typo.bodyLg,
-                    color = Theme.colors.ink3,
-                )
+                Text(text = "reps", style = Theme.typo.bodyLg, color = Theme.colors.ink3)
             }
         }
         Spacer(modifier = Modifier.height(4.dp))
@@ -213,20 +194,27 @@ private fun TimerArea(state: SessionPlayerUiState.Running) {
 }
 
 @Composable
-private fun SideChip(label: String, active: Boolean) {
-    MonoCaps(
-        text = label,
-        color = if (active) Theme.colors.ink else Theme.colors.ink.copy(alpha = 0.3f),
-        size = MonoCapsSize.Regular,
-    )
+private fun SideChip(label: String, active: Boolean, tint: Color) {
+    val bg = if (active) tint.copy(alpha = 0.32f) else Color.Transparent
+    val ink = if (active) Theme.colors.ink else Theme.colors.ink3
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(Theme.dims.radiusPill))
+            .background(bg)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        MonoCaps(text = label, color = ink, size = MonoCapsSize.Regular)
+    }
 }
 
 @Composable
 private fun ControlRow(
     state: SessionPlayerUiState.Running,
     onPrev: () -> Unit,
-    onSkip: () -> Unit,
-    onTogglePause: () -> Unit,
+    onNext: () -> Unit,
+    onStart: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
 ) {
     val ex = state.currentItem.exercise
     Row(
@@ -242,22 +230,28 @@ private fun ControlRow(
             contentDescription = "Previous exercise",
         )
         if (ex.isTimed) {
+            val (label, action) = when (state.phase) {
+                TimerPhase.READY -> "Start" to onStart
+                TimerPhase.RUNNING -> "Pause" to onPause
+                TimerPhase.PAUSED -> "Resume" to onResume
+            }
             Pill(
-                label = if (state.isPaused) "Resume" else if (state.remainingSeconds == state.totalSecondsForPhase) "Start" else "Pause",
-                onClick = onTogglePause,
+                label = label,
+                onClick = action,
                 variant = PillVariant.Accent,
+                leadingIcon = if (state.phase == TimerPhase.READY) IconName.Play else null,
                 modifier = Modifier.weight(1f),
             )
         } else {
             Pill(
                 label = "Perform at your own pace",
-                onClick = {}, // non-interactive for reps
+                onClick = {},
                 variant = PillVariant.DashedOutline,
                 modifier = Modifier.weight(1f),
             )
         }
         CircleButton(
-            onClick = onSkip,
+            onClick = onNext,
             icon = IconName.SkipNext,
             size = CircleButtonSize.Large,
             variant = CircleButtonVariant.Ink,
@@ -273,8 +267,8 @@ private fun formatMmSs(totalSeconds: Int): String {
 }
 
 private fun captionFor(state: SessionPlayerUiState.Running): String = when {
-    state.isPaused -> "PAUSED"
     !state.currentItem.exercise.isTimed -> "TAP NEXT WHEN COMPLETE"
-    state.remainingSeconds == state.totalSecondsForPhase -> "READY WHEN YOU ARE"
+    state.phase == TimerPhase.PAUSED -> "PAUSED"
+    state.phase == TimerPhase.READY -> "READY WHEN YOU ARE"
     else -> "HOLD THE POSITION"
 }
