@@ -74,7 +74,7 @@ internal fun BigChart(
         val pxPerMonth = 60.dp
         val totalWidth: Dp = (pxPerMonth.value * totalMonths).dp.coerceAtLeast(pxPerMonth)
         val scrollState = rememberScrollState()
-        LaunchedEffect(totalWidth) { scrollState.scrollTo(scrollState.maxValue) }
+        LaunchedEffect(scrollState.maxValue) { scrollState.scrollTo(scrollState.maxValue) }
 
         Box(modifier = Modifier.fillMaxHeight().horizontalScroll(scrollState)) {
             Column(modifier = Modifier.width(totalWidth)) {

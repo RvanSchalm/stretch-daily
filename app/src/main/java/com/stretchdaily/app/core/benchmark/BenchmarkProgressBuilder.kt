@@ -48,16 +48,15 @@ data class ProgressSeries(
     val lastMonth: YearMonth,
 ) {
     companion object {
-        val EMPTY: ProgressSeries
-            get() = ProgressSeries(
-                points = emptyList(),
-                isCategorical = false,
-                rawMin = 0f,
-                rawMax = 0f,
-                yTickLabels = emptyList(),
-                firstMonth = YearMonth.now(),
-                lastMonth = YearMonth.now(),
-            )
+        val EMPTY: ProgressSeries = ProgressSeries(
+            points = emptyList(),
+            isCategorical = false,
+            rawMin = 0f,
+            rawMax = 0f,
+            yTickLabels = emptyList(),
+            firstMonth = YearMonth.of(2000, 1),
+            lastMonth = YearMonth.of(2000, 1),
+        )
     }
 }
 
